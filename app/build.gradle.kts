@@ -63,6 +63,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.fragment:fragment-ktx:1.8.9")
 
     implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("com.google.android.gms:play-services-location:21.3.0")
