@@ -146,7 +146,7 @@ fun ClassQuietRoot(
     }
 
     if (editorOpen) {
-        ScheduleEditorScreen(
+        ScheduleEditorScreenV2(
             existing = schedules.firstOrNull { it.id == editingId },
             permissions = permissions,
             snackbarHostState = snackbarHostState,
@@ -158,6 +158,12 @@ fun ClassQuietRoot(
             onSaved = {
                 editorOpen = false
                 editingId = null
+            },
+            onDuplicate = { id ->
+                if (viewModel.duplicate(id)) {
+                    editorOpen = false
+                    editingId = null
+                }
             },
         )
     } else {
@@ -270,7 +276,7 @@ private fun HomeScreen(
                     Column {
                         Text("Quiet Classes", fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Time + place aware DND",
+                            "Schedule-aware DND",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -637,11 +643,12 @@ private fun ScheduleCard(
             InfoLine(
                 icon = { Icon(Icons.Default.Schedule, contentDescription = null) },
                 text = "${schedule.startMinutes.formatAsTime()} – ${schedule.endMinutes.formatAsTime()}" +
-                    if (schedule.endMinutes <= schedule.startMinutes) " · next day" else "",
+                    (if (schedule.endMinutes <= schedule.startMinutes) " · next day" else "") +
+                    (if (schedule.extendPastEnd) " · +30 sec" else ""),
             )
             InfoLine(
                 icon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-                text = "${schedule.locationLabel} · ${schedule.radiusMeters.roundToInt()} m radius",
+                text = schedule.locationSummary,
             )
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as ClassQuietApplication
@@ -59,6 +60,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }.onFailure {
             mutableMessages.tryEmit(it.message ?: "Could not delete the class")
         }
+    }
+
+    fun duplicate(id: String): Boolean {
+        val original = app.scheduleRepository.get(id) ?: return false
+        return runCatching {
+            val duplicate = original.copy(
+                id = UUID.randomUUID().toString(),
+                name = "${original.name} copy",
+                locations = original.savedLocations.map {
+                    it.copy(id = UUID.randomUUID().toString())
+                },
+            )
+            app.scheduleRepository.upsert(duplicate)
+            app.coordinator.refreshBackgroundRegistrations()
+            app.coordinator.enqueueEvaluation("schedule_duplicated")
+            mutableMessages.tryEmit("${duplicate.name} created")
+        }.onFailure {
+            mutableMessages.tryEmit(it.message ?: "Could not duplicate the class")
+        }.isSuccess
     }
 
     fun setEnabled(id: String, enabled: Boolean) {

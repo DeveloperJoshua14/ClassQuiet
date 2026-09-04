@@ -2,6 +2,7 @@ package com.joshua.classquiet.data
 
 import android.content.Context
 import com.joshua.classquiet.model.DndMode
+import com.joshua.classquiet.model.geofenceScheduleId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +35,9 @@ class RuntimeStateStore(context: Context) {
 
     fun insideGeofenceIds(): Set<String> =
         preferences.getStringSet(KEY_INSIDE_IDS, emptySet())?.toSet().orEmpty()
+
+    fun insideScheduleIds(): Set<String> = insideGeofenceIds()
+        .mapTo(mutableSetOf(), ::geofenceScheduleId)
 
     fun replaceInsideGeofences(validIds: Set<String>) = synchronized(lock) {
         val retained = insideGeofenceIds().intersect(validIds)

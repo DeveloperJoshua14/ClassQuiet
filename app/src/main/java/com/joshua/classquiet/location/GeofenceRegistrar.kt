@@ -14,6 +14,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.Tasks
 import com.joshua.classquiet.background.GeofenceReceiver
 import com.joshua.classquiet.data.RuntimeStateStore
+import com.joshua.classquiet.model.ClassLocation
 import com.joshua.classquiet.model.ClassSchedule
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
@@ -27,8 +28,8 @@ class GeofenceRegistrar(
     private val refreshGeneration = AtomicInteger(0)
 
     fun refresh(schedules: List<ClassSchedule>) {
-        val enabled = schedules.filter { it.enabled }.take(MAX_GEOFENCES)
-        runtimeState.replaceInsideGeofences(enabled.mapTo(mutableSetOf()) { it.id })
+        val enabled = registeredGeofences(schedules)
+        runtimeState.replaceInsideGeofences(enabled.mapTo(mutableSetOf()) { it.requestId })
         val generation = refreshGeneration.incrementAndGet()
         val pendingIntent = geofencePendingIntent()
 
@@ -41,8 +42,8 @@ class GeofenceRegistrar(
     }
 
     suspend fun refreshAndAwait(schedules: List<ClassSchedule>): Boolean = withContext(Dispatchers.IO) {
-        val enabled = schedules.filter { it.enabled }.take(MAX_GEOFENCES)
-        runtimeState.replaceInsideGeofences(enabled.mapTo(mutableSetOf()) { it.id })
+        val enabled = registeredGeofences(schedules)
+        runtimeState.replaceInsideGeofences(enabled.mapTo(mutableSetOf()) { it.requestId })
         val pendingIntent = geofencePendingIntent()
         runCatching {
             Tasks.await(client.removeGeofences(pendingIntent))
@@ -83,14 +84,28 @@ class GeofenceRegistrar(
         return fine && background
     }
 
-    private fun buildRequest(schedules: List<ClassSchedule>): GeofencingRequest {
-        val geofences = schedules.map { schedule ->
+    private fun registeredGeofences(schedules: List<ClassSchedule>): List<RegisteredGeofence> =
+        schedules.asSequence()
+            .filter { it.enabled && it.locationEnabled }
+            .flatMap { schedule ->
+                schedule.effectiveLocations.asSequence().map { location ->
+                    RegisteredGeofence(
+                        requestId = requestId(schedule.id, location.id),
+                        location = location,
+                    )
+                }
+            }
+            .take(MAX_GEOFENCES)
+            .toList()
+
+    private fun buildRequest(entries: List<RegisteredGeofence>): GeofencingRequest {
+        val geofences = entries.map { entry ->
             Geofence.Builder()
-                .setRequestId(schedule.id)
+                .setRequestId(entry.requestId)
                 .setCircularRegion(
-                    schedule.latitude,
-                    schedule.longitude,
-                    schedule.radiusMeters.coerceIn(MIN_RADIUS_METERS, MAX_RADIUS_METERS),
+                    entry.location.latitude,
+                    entry.location.longitude,
+                    entry.location.radiusMeters.coerceIn(MIN_RADIUS_METERS, MAX_RADIUS_METERS),
                 )
                 .setTransitionTypes(
                     Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT,
@@ -119,12 +134,21 @@ class GeofenceRegistrar(
         )
     }
 
+    private data class RegisteredGeofence(
+        val requestId: String,
+        val location: ClassLocation,
+    )
+
     companion object {
         const val ACTION_GEOFENCE = "com.joshua.classquiet.action.GEOFENCE"
+        private const val REQUEST_ID_SEPARATOR = "|"
         private const val GEOFENCE_REQUEST_CODE = 4108
         private const val MAX_GEOFENCES = 100
         private const val MIN_RADIUS_METERS = 50f
         private const val MAX_RADIUS_METERS = 2_000f
         private const val TAG = "ClassQuietGeofence"
+
+        private fun requestId(scheduleId: String, locationId: String): String =
+            "$scheduleId$REQUEST_ID_SEPARATOR$locationId"
     }
 }

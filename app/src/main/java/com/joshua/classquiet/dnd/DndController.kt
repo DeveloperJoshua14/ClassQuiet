@@ -161,7 +161,7 @@ class DndController(context: Context) {
                 .setInterruptionFilter(profile.interruptionFilter)
                 .setZenPolicy(profile.policy)
                 .setManualInvocationAllowed(false)
-                .setTriggerDescription("During a scheduled class at its saved location")
+                .setTriggerDescription("During a configured class schedule")
                 .setType(AutomaticZenRule.TYPE_OTHER)
                 .build()
         } else {

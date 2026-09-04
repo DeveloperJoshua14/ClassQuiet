@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -37,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.joshua.classquiet.data.AppSettings
@@ -51,6 +53,7 @@ internal fun SettingsScreen(
     snackbarHostState: SnackbarHostState,
     bottomBar: @Composable () -> Unit,
 ) {
+    val uriHandler = LocalUriHandler.current
     var ruleName by rememberSaveable(settings.dndRuleName) {
         mutableStateOf(settings.dndRuleName)
     }
@@ -142,6 +145,22 @@ internal fun SettingsScreen(
                 }
             }
             item {
+                SettingsCard(title = "Links") {
+                    ExternalLinkRow("App website") {
+                        uriHandler.openUri("https://classquiet.nafzigers.us")
+                    }
+                    ExternalLinkRow("Privacy policy") {
+                        uriHandler.openUri("https://classquiet.nafzigers.us/privacy")
+                    }
+                    ExternalLinkRow("Terms and conditions") {
+                        uriHandler.openUri("https://classquiet.nafzigers.us/terms")
+                    }
+                    ExternalLinkRow("Buy me a coffee") {
+                        uriHandler.openUri("https://buymeacoffee.com/joshua.nafziger")
+                    }
+                }
+            }
+            item {
                 SettingsCard(title = "About") {
                     Row(Modifier.fillMaxWidth()) {
                         Text("App", modifier = Modifier.weight(1f))
@@ -150,7 +169,7 @@ internal fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth()) {
                         Text("Version", modifier = Modifier.weight(1f))
-                        Text("1.1.0")
+                        Text(com.joshua.classquiet.BuildConfig.VERSION_NAME)
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -184,6 +203,14 @@ internal fun SettingsScreen(
                 TextButton(onClick = { confirmImport = false }) { Text("Cancel") }
             },
         )
+    }
+}
+
+@Composable
+private fun ExternalLinkRow(label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Text(label, modifier = Modifier.weight(1f))
+        Icon(Icons.Default.OpenInNew, contentDescription = "Open $label")
     }
 }
 

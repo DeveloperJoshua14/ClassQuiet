@@ -8,6 +8,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.joshua.classquiet.audio.MediaVolumeController
 import com.joshua.classquiet.data.AppSettingsRepository
 import com.joshua.classquiet.data.RuntimeState
 import com.joshua.classquiet.data.RuntimeStateStore
@@ -32,6 +33,7 @@ class BackgroundCoordinator(
     private val geofenceRegistrar: GeofenceRegistrar,
     private val settings: AppSettingsRepository,
     private val notifier: ActiveModeNotifier,
+    private val mediaVolumeController: MediaVolumeController,
 ) {
     private val workManager = WorkManager.getInstance(context)
 
@@ -69,8 +71,8 @@ class BackgroundCoordinator(
 
     fun fastEvaluateFromGeofenceHints(definitiveNoMatch: Boolean = false) {
         val active = activeSchedules()
-        val insideIds = runtime.insideGeofenceIds()
-        val matches = active.filter { it.id in insideIds }
+        val insideIds = runtime.insideScheduleIds()
+        val matches = active.filter { !it.locationEnabled || it.id in insideIds }
         when {
             matches.isNotEmpty() -> applyMatches(matches, "Confirmed by the class geofence.")
             active.isEmpty() || definitiveNoMatch -> markInactive(
@@ -96,6 +98,7 @@ class BackgroundCoordinator(
         }
 
         if (!dndController.hasPolicyAccess()) {
+            mediaVolumeController.finishClassSession()
             notifier.cancel()
             runtime.updateStatus(
                 RuntimeStatus(
@@ -108,26 +111,35 @@ class BackgroundCoordinator(
             return false
         }
 
-        val location = locationManager.currentLocation()
-        val matches = if (location != null) {
-            active.filter { schedule ->
+        val timeOnlyMatches = active.filterNot { it.locationEnabled }
+        val locationSchedules = active.filter { it.locationEnabled }
+        val location = if (locationSchedules.isNotEmpty()) locationManager.currentLocation() else null
+        val locationMatches = if (location != null) {
+            locationSchedules.filter { schedule ->
                 val inside = ScheduleEngine.isInside(schedule, location)
-                runtime.setInsideGeofence(schedule.id, inside)
                 inside
             }
         } else {
-            val reliableIds = runtime.insideGeofenceIds() + runtime.status.value.activeScheduleIds
-            active.filter { it.id in reliableIds }
+            val reliableIds = runtime.insideScheduleIds() + runtime.status.value.activeScheduleIds
+            locationSchedules.filter { it.id in reliableIds }
+        }
+        val matches = (timeOnlyMatches + locationMatches).distinctBy { it.id }
+        val matchDetail = when {
+            location != null && locationMatches.isNotEmpty() ->
+                "The class time and current location both match."
+            timeOnlyMatches.isNotEmpty() && locationMatches.isEmpty() ->
+                "A time-only class schedule is active."
+            else ->
+                "Current GPS was unavailable; the last confirmed geofence state was used."
         }
 
         when {
             matches.isNotEmpty() -> applyMatches(
                 matches,
-                if (location != null) "Time and current location both match."
-                else "Current GPS fix was unavailable; the last confirmed geofence state was used.",
+                matchDetail,
             )
 
-            location == null -> markInactive(
+            locationSchedules.isNotEmpty() && location == null -> markInactive(
                 RuntimeState.LOCATION_UNAVAILABLE,
                 "A class is in progress, but Android could not provide a recent location. Check Location Services and battery settings.",
             )
@@ -152,8 +164,10 @@ class BackgroundCoordinator(
         val ruleName = settings.current().dndRuleName
         val result = dndController.apply(controllingSchedule, ruleName)
         if (result.success) {
+            mediaVolumeController.startClassSession()
             notifier.show(ruleName, matches, mode.displayName)
         } else {
+            mediaVolumeController.finishClassSession()
             notifier.cancel()
         }
         runtime.updateStatus(
@@ -171,6 +185,7 @@ class BackgroundCoordinator(
 
     private fun markInactive(state: RuntimeState, detail: String) {
         val result = dndController.deactivate()
+        mediaVolumeController.finishClassSession()
         notifier.cancel()
         runtime.updateStatus(
             RuntimeStatus(

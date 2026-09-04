@@ -1,6 +1,7 @@
 package com.joshua.classquiet
 
 import com.joshua.classquiet.model.ClassSchedule
+import com.joshua.classquiet.model.ClassLocation
 import com.joshua.classquiet.model.CustomDndSettings
 import com.joshua.classquiet.model.DndMode
 import com.joshua.classquiet.model.LocationSnapshot
@@ -85,6 +86,60 @@ class ScheduleEngineTest {
         assertTrue(ScheduleEngine.isInside(schedule, nearby, now))
         assertFalse(ScheduleEngine.isInside(schedule, farAway, now))
         assertFalse(ScheduleEngine.isInside(schedule, stale, now))
+    }
+
+    @Test
+    fun `any saved location can activate a class`() {
+        val schedule = sampleSchedule().copy(
+            locations = listOf(
+                ClassLocation(
+                    label = "First Hall",
+                    latitude = 37.2296,
+                    longitude = -80.4139,
+                    radiusMeters = 100f,
+                ),
+                ClassLocation(
+                    label = "Second Hall",
+                    latitude = 37.2400,
+                    longitude = -80.4300,
+                    radiusMeters = 100f,
+                ),
+            ),
+        )
+        val now = 1_800_000_000_000L
+        val secondHall = LocationSnapshot(37.2401, -80.4300, 5f, now)
+
+        assertTrue(ScheduleEngine.isInside(schedule, secondHall, now))
+    }
+
+    @Test
+    fun `time only classes do not require a location match`() {
+        val schedule = sampleSchedule().copy(locationEnabled = false)
+        val staleAndFarAway = LocationSnapshot(0.0, 0.0, 5f, 0L)
+
+        assertTrue(ScheduleEngine.isInside(schedule, staleAndFarAway))
+    }
+
+    @Test
+    fun `optional grace period keeps class active for thirty seconds`() {
+        val schedule = sampleSchedule(
+            days = setOf(DayOfWeek.WEDNESDAY),
+            startMinutes = 10 * 60,
+            endMinutes = 11 * 60,
+        ).copy(extendPastEnd = true)
+
+        assertTrue(
+            ScheduleEngine.activeWindows(
+                listOf(schedule),
+                ZonedDateTime.of(2026, 9, 2, 11, 0, 29, 0, zone),
+            ).isNotEmpty(),
+        )
+        assertTrue(
+            ScheduleEngine.activeWindows(
+                listOf(schedule),
+                ZonedDateTime.of(2026, 9, 2, 11, 0, 30, 0, zone),
+            ).isEmpty(),
+        )
     }
 
     @Test

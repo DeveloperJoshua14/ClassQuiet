@@ -5,13 +5,13 @@ Quiet Classes is a native Android app that activates Do Not Disturb only when bo
 1. A saved class is currently in session.
 2. The phone is physically inside that class's saved location radius.
 
-This is version 1.1.0. It is designed for a Pixel running Android 17. The app compiles against stable API 36 and targets API 36, which remains forward-compatible with Android 17. Its unchanged package name is `com.joshua.classquiet`, so this release can update the earlier ClassQuiet build while preserving its stored classes.
+This is version 1.2.0. It is designed for a Pixel running Android 17. The app compiles against stable API 36 and targets API 36, which remains forward-compatible with Android 17. Its unchanged package name is `com.joshua.classquiet`, so this release can update earlier ClassQuiet and Quiet Classes builds while preserving their stored classes.
 
 ## Download and install
 
 Download the newest signed APK from the [GitHub Releases page](https://github.com/DeveloperJoshua14/ClassQuiet/releases/latest).
 
-1. Under **Assets**, download the file ending in `.apk` (for example, `Quiet-Classes-v1.1.0.apk`). Do not download GitHub's automatically generated **Source code** ZIP files unless you intend to build the app yourself.
+1. Under **Assets**, download the file ending in `.apk` (for example, `Quiet-Classes-v1.2.0.apk`). Do not download GitHub's automatically generated **Source code** ZIP files unless you intend to build the app yourself.
 2. Open the APK on the Android phone.
 3. If Android asks, allow **Install unknown apps** for the browser, Files app, or other app used to open the APK.
 4. Complete the six setup requirements shown inside Quiet Classes.
@@ -25,7 +25,10 @@ Android may show a Play Protect notice because the APK is installed directly fro
 
 - Add, edit, enable, disable, and delete recurring classes.
 - Pick weekdays, start and end times, a building or room, and a 50–500 m location radius.
-- Find a street address, save the current GPS location, or enter coordinates manually.
+- Use time-only classes, one class location, or several valid locations for the same class.
+- Find a street address, save the current GPS location, enter coordinates manually, or drop a pin on an OpenStreetMap map that displays the selected radius.
+- Optionally extend DND for 30 seconds beyond the scheduled end.
+- Duplicate an existing class and adjust the copy.
 - View the schedule in either the normal class list or a seven-day calendar showing time and location.
 - Choose one of four DND levels for every class:
   - **Visual only:** notifications remain visible but make no sound or vibration; alarms and media may play.
@@ -34,6 +37,7 @@ Android may show a Play Protect notice because the APK is installed directly fro
   - **Custom:** independently configure alarms, media, system sounds, reminders, events, repeat callers, priority channels, calls, messages, conversations, and Android's visual notification effects.
 - Rename the app-owned Android Mode from the Settings tab.
 - Show a silent ongoing notification containing the active class and DND level.
+- Temporarily mute media when a class activates, unless media is already playing. Restore the earlier level only if Quiet Classes muted it and the user did not override it.
 - Export all classes, locations, schedules, DND choices, custom policies, and app settings to one JSON backup; import it on another device.
 - Hide the first-run setup card automatically once all six requirements are ready.
 - If qualifying classes overlap, apply the most restrictive configured policy.
@@ -65,9 +69,9 @@ From the extracted `ClassQuiet` directory:
 
 The debug APK is produced at `app\build\outputs\apk\debug\app-debug.apk`.
 
-## Updating from the earlier build
+## Updating from an earlier build
 
-Install version 1.1.0 on the same Pixel. Because the application ID is unchanged and the version code is higher, Android accepts it as an update and retains the existing class list when both APKs were signed with the same key.
+Install version 1.2.0 on the same Pixel. Because the application ID is unchanged and the version code is higher, Android accepts it as an update and retains the existing class list when both APKs were signed with the same key.
 
 Do not uninstall the earlier app first unless Android reports a signing conflict; uninstalling removes its local data. Export a backup before replacing or uninstalling any existing installation.
 
@@ -110,6 +114,7 @@ For real classes, 150–250 m is a reasonable starting radius for a campus build
 - The app uses the last confirmed geofence state only when Android cannot provide a fresh location. It still turns class mode off at the scheduled end or after a confirmed geofence exit.
 - Force-stopping an Android app disables its alarms and receivers until the app is opened again. Swiping it out of Recents does not force-stop it.
 - Geofencing depends on Google Play services, which is present on a Pixel.
+- The optional 2D map needs internet access and loads Leaflet resources and OpenStreetMap tiles. Address/current-location/manual-coordinate selection remains available without the map.
 - Real DND, exact-alarm, notification, and geofence behavior must be tested on a physical phone because plain JVM tests do not provide those Android system services.
 
 ## Project structure
@@ -120,6 +125,7 @@ For real classes, 150–250 m is a reasonable starting radius for a campus build
 - `dnd/` — the named Android Mode and `ZenPolicy` integration.
 - `notification/` — the active-mode status notification.
 - `location/` — current location, geocoding, and geofence registration.
+- `audio/` — guarded media muting and restoration for active class sessions.
 - `background/` — exact alarms, receivers, WorkManager evaluation, and reboot recovery.
 - `ui/` — Jetpack Compose class list, seven-day view, settings, setup, and class editor.
 
@@ -135,11 +141,13 @@ Release builds must be signed. In Android Studio:
 4. Choose **APK**, select the `app` module, and choose the `release` build variant.
 5. Select the existing Quiet Classes `.jks` keystore and key alias. Always use the same release key so Android can install the APK as an update.
 6. Create the APK. Android Studio normally writes it to `app/build/outputs/apk/release/app-release.apk`.
-7. Rename the file to include the version, such as `Quiet-Classes-v1.1.0.apk`.
-8. On GitHub, open **Releases → Draft a new release**, create a matching tag such as `v1.1.0`, attach the renamed APK under **Assets**, add release notes, and publish it.
+7. Rename the file to include the version, such as `Quiet-Classes-v1.2.0.apk`.
+8. On GitHub, open **Releases → Draft a new release**, create a matching tag such as `v1.2.0`, attach the renamed APK under **Assets**, add release notes, and publish it.
 
 Keep the signing keystore and its passwords private, backed up, and outside the repository. Anyone with the key can publish an update that Android trusts as this app, while losing the key prevents future APKs from updating existing installations.
 
 ## Publishing note
 
 GitHub Releases are suitable for direct APK distribution and sideloading. Google Play distribution uses an Android App Bundle (`.aab`) and restricts exact-alarm and background-location permissions. Publishing through Google Play would require appropriate store disclosures, permission declarations, and policy review.
+
+Project information is available at [classquiet.nafzigers.us](https://classquiet.nafzigers.us). See the [privacy policy](https://classquiet.nafzigers.us/privacy) and [terms and conditions](https://classquiet.nafzigers.us/terms).

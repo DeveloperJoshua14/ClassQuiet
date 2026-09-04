@@ -12,7 +12,7 @@ data class ImportedConfiguration(
 
 object ConfigurationBackup {
     private const val FORMAT = "quiet-classes-backup"
-    private const val CURRENT_VERSION = 1
+    private const val CURRENT_VERSION = 2
     private const val MAX_SCHEDULES = 1_000
 
     fun encode(schedules: List<ClassSchedule>, settings: AppSettings): String =
@@ -62,10 +62,22 @@ object ConfigurationBackup {
     private fun validate(schedule: ClassSchedule, index: Int) {
         val label = "Class ${index + 1}"
         require(schedule.name.isNotBlank()) { "$label has no name." }
-        require(schedule.locationLabel.isNotBlank()) { "$label has no location label." }
-        require(schedule.latitude in -90.0..90.0) { "$label has an invalid latitude." }
-        require(schedule.longitude in -180.0..180.0) { "$label has an invalid longitude." }
-        require(schedule.radiusMeters in 25f..5_000f) { "$label has an invalid location radius." }
+        if (schedule.locationEnabled) {
+            require(schedule.savedLocations.isNotEmpty()) { "$label has no locations." }
+        }
+        schedule.savedLocations.forEachIndexed { locationIndex, location ->
+            val locationLabel = "$label location ${locationIndex + 1}"
+            require(location.label.isNotBlank()) { "$locationLabel has no label." }
+            require(location.latitude in -90.0..90.0) {
+                "$locationLabel has an invalid latitude."
+            }
+            require(location.longitude in -180.0..180.0) {
+                "$locationLabel has an invalid longitude."
+            }
+            require(location.radiusMeters in 25f..5_000f) {
+                "$locationLabel has an invalid radius."
+            }
+        }
         require(schedule.days.isNotEmpty()) { "$label has no scheduled days." }
         require(schedule.startMinutes in 0..1_439 && schedule.endMinutes in 0..1_439) {
             "$label has an invalid time."

@@ -192,7 +192,7 @@ private fun CalendarClassRow(
                 fontWeight = FontWeight.Medium,
             )
             Text(
-                schedule.endMinutes.formatAsTime(),
+                schedule.endMinutes.formatAsTime() + if (schedule.extendPastEnd) " +30s" else "",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -238,7 +238,7 @@ private fun CalendarClassRow(
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    schedule.locationLabel,
+                    schedule.locationSummary,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

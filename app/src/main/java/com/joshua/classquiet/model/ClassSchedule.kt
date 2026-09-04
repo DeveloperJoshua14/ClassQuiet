@@ -128,6 +128,35 @@ data class CustomDndSettings(
     }
 }
 
+data class ClassLocation(
+    val id: String = UUID.randomUUID().toString(),
+    val label: String,
+    val resolvedAddress: String = "",
+    val latitude: Double,
+    val longitude: Double,
+    val radiusMeters: Float = 150f,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("label", label)
+        put("resolvedAddress", resolvedAddress)
+        put("latitude", latitude)
+        put("longitude", longitude)
+        put("radiusMeters", radiusMeters.toDouble())
+    }
+
+    companion object {
+        fun fromJson(json: JSONObject): ClassLocation = ClassLocation(
+            id = json.optString("id").ifBlank { UUID.randomUUID().toString() },
+            label = json.optString("label", "Class location"),
+            resolvedAddress = json.optString("resolvedAddress", ""),
+            latitude = json.optDouble("latitude", 0.0),
+            longitude = json.optDouble("longitude", 0.0),
+            radiusMeters = json.optDouble("radiusMeters", 150.0).toFloat(),
+        )
+    }
+}
+
 data class ClassSchedule(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
@@ -142,7 +171,40 @@ data class ClassSchedule(
     val dndMode: DndMode,
     val customDndSettings: CustomDndSettings = CustomDndSettings(),
     val enabled: Boolean = true,
+    val locationEnabled: Boolean = true,
+    val locations: List<ClassLocation> = emptyList(),
+    val extendPastEnd: Boolean = false,
 ) {
+    val savedLocations: List<ClassLocation>
+        get() = if (locations.isNotEmpty()) {
+            locations
+        } else if (locationLabel.isNotBlank() && locationLabel != "No location") {
+            listOf(
+                ClassLocation(
+                    id = "${id}-primary",
+                    label = locationLabel,
+                    resolvedAddress = resolvedAddress,
+                    latitude = latitude,
+                    longitude = longitude,
+                    radiusMeters = radiusMeters,
+                ),
+            )
+        } else emptyList()
+
+    val effectiveLocations: List<ClassLocation>
+        get() = if (locationEnabled) savedLocations else emptyList()
+
+    val locationSummary: String
+        get() = when {
+            !locationEnabled -> "No location required"
+            effectiveLocations.isEmpty() -> "No location saved"
+            effectiveLocations.size == 1 -> effectiveLocations.first().let {
+                "${it.label} · ${it.radiusMeters.toInt()} m radius"
+            }
+            else -> "${effectiveLocations.size} locations · " +
+                effectiveLocations.joinToString { it.label }
+        }
+
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
         put("name", name)
@@ -157,6 +219,9 @@ data class ClassSchedule(
         put("dndMode", dndMode.name)
         put("customDndSettings", customDndSettings.toJson())
         put("enabled", enabled)
+        put("locationEnabled", locationEnabled)
+        put("locations", JSONArray().apply { savedLocations.forEach { put(it.toJson()) } })
+        put("extendPastEnd", extendPastEnd)
     }
 
     companion object {
@@ -167,6 +232,16 @@ data class ClassSchedule(
                     storedDays.optInt(index, -1)
                         .takeIf { it in 1..7 }
                         ?.let { add(DayOfWeek.of(it)) }
+                }
+            }
+            val storedLocations = json.optJSONArray("locations")
+            val locations = buildList {
+                if (storedLocations != null) {
+                    for (index in 0 until storedLocations.length()) {
+                        storedLocations.optJSONObject(index)?.let {
+                            add(ClassLocation.fromJson(it))
+                        }
+                    }
                 }
             }
             return ClassSchedule(
@@ -185,6 +260,9 @@ data class ClassSchedule(
                     json.optJSONObject("customDndSettings"),
                 ),
                 enabled = json.optBoolean("enabled", true),
+                locationEnabled = json.optBoolean("locationEnabled", true),
+                locations = locations,
+                extendPastEnd = json.optBoolean("extendPastEnd", false),
             )
         }
     }
@@ -196,6 +274,8 @@ data class LocationSnapshot(
     val accuracyMeters: Float,
     val capturedAtMillis: Long,
 )
+
+fun geofenceScheduleId(requestId: String): String = requestId.substringBefore('|')
 
 fun Int.asTime(): LocalTime {
     val normalized = coerceIn(0, 23 * 60 + 59)

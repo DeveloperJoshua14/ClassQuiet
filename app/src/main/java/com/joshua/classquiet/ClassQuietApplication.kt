@@ -1,6 +1,7 @@
 package com.joshua.classquiet
 
 import android.app.Application
+import com.joshua.classquiet.audio.MediaVolumeController
 import com.joshua.classquiet.background.AlarmScheduler
 import com.joshua.classquiet.background.BackgroundCoordinator
 import com.joshua.classquiet.data.AppSettingsRepository
@@ -31,6 +32,8 @@ class ClassQuietApplication : Application() {
         private set
     lateinit var activeModeNotifier: ActiveModeNotifier
         private set
+    lateinit var mediaVolumeController: MediaVolumeController
+        private set
     lateinit var coordinator: BackgroundCoordinator
         private set
 
@@ -45,6 +48,7 @@ class ClassQuietApplication : Application() {
         alarmScheduler = AlarmScheduler(this)
         geofenceRegistrar = GeofenceRegistrar(this, runtimeState)
         activeModeNotifier = ActiveModeNotifier(this)
+        mediaVolumeController = MediaVolumeController(this)
         coordinator = BackgroundCoordinator(
             context = this,
             schedules = scheduleRepository,
@@ -55,6 +59,7 @@ class ClassQuietApplication : Application() {
             geofenceRegistrar = geofenceRegistrar,
             settings = appSettings,
             notifier = activeModeNotifier,
+            mediaVolumeController = mediaVolumeController,
         )
 
         coordinator.ensurePeriodicEvaluation()

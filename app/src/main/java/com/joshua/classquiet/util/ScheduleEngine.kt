@@ -1,6 +1,7 @@
 package com.joshua.classquiet.util
 
 import com.joshua.classquiet.model.ClassSchedule
+import com.joshua.classquiet.model.ClassLocation
 import com.joshua.classquiet.model.DndMode
 import com.joshua.classquiet.model.PeopleAudience
 import com.joshua.classquiet.model.LocationSnapshot
@@ -68,15 +69,24 @@ object ScheduleEngine {
         location: LocationSnapshot,
         nowMillis: Long = System.currentTimeMillis(),
     ): Boolean {
+        if (!schedule.locationEnabled) return true
+        return schedule.effectiveLocations.any { isInside(it, location, nowMillis) }
+    }
+
+    fun isInside(
+        classLocation: ClassLocation,
+        location: LocationSnapshot,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): Boolean {
         if (nowMillis - location.capturedAtMillis > MAX_LOCATION_AGE_MILLIS) return false
         val distance = distanceMeters(
             location.latitude,
             location.longitude,
-            schedule.latitude,
-            schedule.longitude,
+            classLocation.latitude,
+            classLocation.longitude,
         )
         val accuracyAllowance = min(location.accuracyMeters.coerceAtLeast(0f), 30f)
-        return distance <= schedule.radiusMeters + accuracyAllowance
+        return distance <= classLocation.radiusMeters + accuracyAllowance
     }
 
     fun distanceMeters(
@@ -140,7 +150,8 @@ object ScheduleEngine {
         if (date.dayOfWeek !in schedule.days) return null
         val start = date.atTime(schedule.startMinutes.asTime()).atZone(zone)
         val endDate = if (schedule.endMinutes > schedule.startMinutes) date else date.plusDays(1)
-        val end = endDate.atTime(schedule.endMinutes.asTime()).atZone(zone)
+        val scheduledEnd = endDate.atTime(schedule.endMinutes.asTime()).atZone(zone)
+        val end = if (schedule.extendPastEnd) scheduledEnd.plusSeconds(30) else scheduledEnd
         return ScheduleWindow(schedule, start, end)
     }
 }
