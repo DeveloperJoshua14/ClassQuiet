@@ -7,6 +7,20 @@ Quiet Classes is a native Android app that activates Do Not Disturb only when bo
 
 This is version 1.1.0. It is designed for a Pixel running Android 17. The app compiles against stable API 36 and targets API 36, which remains forward-compatible with Android 17. Its unchanged package name is `com.joshua.classquiet`, so this release can update the earlier ClassQuiet build while preserving its stored classes.
 
+## Download and install
+
+Download the newest signed APK from the [GitHub Releases page](https://github.com/DeveloperJoshua14/ClassQuiet/releases/latest).
+
+1. Under **Assets**, download the file ending in `.apk` (for example, `Quiet-Classes-v1.1.0.apk`). Do not download GitHub's automatically generated **Source code** ZIP files unless you intend to build the app yourself.
+2. Open the APK on the Android phone.
+3. If Android asks, allow **Install unknown apps** for the browser, Files app, or other app used to open the APK.
+4. Complete the six setup requirements shown inside Quiet Classes.
+
+Android may show a Play Protect notice because the APK is installed directly from GitHub instead of Google Play. Each user must grant location, background location, notification, Do Not Disturb, and exact-alarm access on their own device.
+
+> [!IMPORTANT]
+> A release APK cannot update a copy installed directly from Android Studio if that copy was signed with Android's debug key. Export the Quiet Classes configuration, uninstall the debug build, install the signed release APK, and then import the configuration. After that one-time switch, later APKs signed with the same release key can update the app normally.
+
 ## What is included
 
 - Add, edit, enable, disable, and delete recurring classes.
@@ -27,7 +41,7 @@ This is version 1.1.0. It is designed for a Pixel running Android 17. The app co
 - Re-register alarms and geofences after reboot, app upgrade, clock changes, and timezone changes.
 - Keep schedules and coordinates on-device unless the user explicitly exports a backup. There is no account, analytics service, or custom server.
 
-## Open and run it
+## Build from source
 
 ### Android Studio
 
@@ -53,9 +67,9 @@ The debug APK is produced at `app\build\outputs\apk\debug\app-debug.apk`.
 
 ## Updating from the earlier build
 
-Build and run version 1.1.0 on the same Pixel. Because the application ID is unchanged and the version code is higher, Android Studio should install it as an update and retain the existing class list. This assumes both builds use the same signing key, which is normally true when they are run from the same Windows account and Android Studio installation.
+Install version 1.1.0 on the same Pixel. Because the application ID is unchanged and the version code is higher, Android accepts it as an update and retains the existing class list when both APKs were signed with the same key.
 
-Do not uninstall the earlier app first unless Android reports a signing conflict; uninstalling removes its local data. Version 1.0 did not include the new export tool.
+Do not uninstall the earlier app first unless Android reports a signing conflict; uninstalling removes its local data. Export a backup before replacing or uninstalling any existing installation.
 
 ## First-run setup on the Pixel
 
@@ -111,6 +125,21 @@ For real classes, 150–250 m is a reasonable starting radius for a campus build
 
 Run local unit tests with `gradlew test`.
 
+## Create a GitHub release
+
+Release builds must be signed. In Android Studio:
+
+1. Increase `versionCode` and update `versionName` in `app/build.gradle.kts`.
+2. Run the tests and confirm that the app works on a physical phone.
+3. Select **Build → Generate Signed App Bundle or APK**.
+4. Choose **APK**, select the `app` module, and choose the `release` build variant.
+5. Select the existing Quiet Classes `.jks` keystore and key alias. Always use the same release key so Android can install the APK as an update.
+6. Create the APK. Android Studio normally writes it to `app/build/outputs/apk/release/app-release.apk`.
+7. Rename the file to include the version, such as `Quiet-Classes-v1.1.0.apk`.
+8. On GitHub, open **Releases → Draft a new release**, create a matching tag such as `v1.1.0`, attach the renamed APK under **Assets**, add release notes, and publish it.
+
+Keep the signing keystore and its passwords private, backed up, and outside the repository. Anyone with the key can publish an update that Android trusts as this app, while losing the key prevents future APKs from updating existing installations.
+
 ## Publishing note
 
-This build is suitable for personal sideloading. Google Play restricts exact-alarm and background-location permissions. Public distribution would require a Play policy review of the store listing, permission declarations, disclosures, and possibly the scheduling implementation.
+GitHub Releases are suitable for direct APK distribution and sideloading. Google Play distribution uses an Android App Bundle (`.aab`) and restricts exact-alarm and background-location permissions. Publishing through Google Play would require appropriate store disclosures, permission declarations, and policy review.
