@@ -17,7 +17,7 @@ enum class RuntimeState {
 
 data class RuntimeStatus(
     val state: RuntimeState = RuntimeState.IDLE,
-    val headline: String = "ClassQuiet is ready",
+    val headline: String = "Quiet Classes is ready",
     val detail: String = "No class is currently active.",
     val activeScheduleIds: List<String> = emptyList(),
     val activeScheduleNames: List<String> = emptyList(),
@@ -66,7 +66,7 @@ class RuntimeStateStore(context: Context) {
         state = runCatching {
             RuntimeState.valueOf(preferences.getString(KEY_STATE, null) ?: RuntimeState.IDLE.name)
         }.getOrDefault(RuntimeState.IDLE),
-        headline = preferences.getString(KEY_HEADLINE, null) ?: "ClassQuiet is ready",
+        headline = preferences.getString(KEY_HEADLINE, null) ?: "Quiet Classes is ready",
         detail = preferences.getString(KEY_DETAIL, null) ?: "No class is currently active.",
         activeScheduleIds = preferences.getStringSet(KEY_ACTIVE_IDS, emptySet())?.toList().orEmpty(),
         activeScheduleNames = preferences.getStringSet(KEY_ACTIVE_NAMES, emptySet())?.toList().orEmpty(),

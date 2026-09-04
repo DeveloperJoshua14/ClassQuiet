@@ -8,6 +8,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.joshua.classquiet.data.AppSettingsRepository
 import com.joshua.classquiet.data.RuntimeState
 import com.joshua.classquiet.data.RuntimeStateStore
 import com.joshua.classquiet.data.RuntimeStatus
@@ -16,6 +17,7 @@ import com.joshua.classquiet.dnd.DndController
 import com.joshua.classquiet.location.ClassLocationManager
 import com.joshua.classquiet.location.GeofenceRegistrar
 import com.joshua.classquiet.model.ClassSchedule
+import com.joshua.classquiet.notification.ActiveModeNotifier
 import com.joshua.classquiet.util.ScheduleEngine
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
@@ -28,6 +30,8 @@ class BackgroundCoordinator(
     private val dndController: DndController,
     private val alarmScheduler: AlarmScheduler,
     private val geofenceRegistrar: GeofenceRegistrar,
+    private val settings: AppSettingsRepository,
+    private val notifier: ActiveModeNotifier,
 ) {
     private val workManager = WorkManager.getInstance(context)
 
@@ -92,11 +96,12 @@ class BackgroundCoordinator(
         }
 
         if (!dndController.hasPolicyAccess()) {
+            notifier.cancel()
             runtime.updateStatus(
                 RuntimeStatus(
                     state = RuntimeState.NEEDS_PERMISSION,
                     headline = "Do Not Disturb access needed",
-                    detail = "A scheduled class is active, but Android has not allowed ClassQuiet to control DND.",
+                    detail = "A scheduled class is active, but Android has not allowed Quiet Classes to control DND.",
                     updatedAtMillis = System.currentTimeMillis(),
                 ),
             )
@@ -142,8 +147,15 @@ class BackgroundCoordinator(
     ).map { it.schedule }
 
     private fun applyMatches(matches: List<ClassSchedule>, detail: String) {
-        val mode = checkNotNull(ScheduleEngine.strongestMode(matches))
-        val result = dndController.apply(mode)
+        val controllingSchedule = checkNotNull(ScheduleEngine.strongestSchedule(matches))
+        val mode = controllingSchedule.dndMode
+        val ruleName = settings.current().dndRuleName
+        val result = dndController.apply(controllingSchedule, ruleName)
+        if (result.success) {
+            notifier.show(ruleName, matches, mode.displayName)
+        } else {
+            notifier.cancel()
+        }
         runtime.updateStatus(
             RuntimeStatus(
                 state = if (result.success) RuntimeState.ACTIVE else RuntimeState.ERROR,
@@ -159,6 +171,7 @@ class BackgroundCoordinator(
 
     private fun markInactive(state: RuntimeState, detail: String) {
         val result = dndController.deactivate()
+        notifier.cancel()
         runtime.updateStatus(
             RuntimeStatus(
                 state = if (result.success) state else RuntimeState.ERROR,

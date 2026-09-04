@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">ClassQuiet</string>
+    <string name="app_name">Quiet Classes</string>
+    <string name="dnd_rule_type">Class time and location</string>
 </resources>
-

@@ -5,7 +5,6 @@ import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,11 +30,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
@@ -54,6 +55,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -77,7 +80,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -87,15 +89,23 @@ import com.joshua.classquiet.data.RuntimeState
 import com.joshua.classquiet.data.RuntimeStatus
 import com.joshua.classquiet.location.PermissionSnapshot
 import com.joshua.classquiet.model.ClassSchedule
+import com.joshua.classquiet.model.CustomDndSettings
 import com.joshua.classquiet.model.DndMode
 import com.joshua.classquiet.model.formatAsTime
 import com.joshua.classquiet.model.formatDays
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.time.DayOfWeek
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.roundToInt
+
+private enum class MainTab {
+    CLASSES,
+    WEEK,
+    SETTINGS,
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,13 +116,22 @@ fun ClassQuietRoot(
     openDndSettings: () -> Unit,
     openExactAlarmSettings: () -> Unit,
     openLocationServices: () -> Unit,
+    requestNotificationPermission: () -> Unit,
+    exportConfiguration: () -> Unit,
+    importConfiguration: () -> Unit,
+    startOnSettings: Boolean = false,
 ) {
     val schedules by viewModel.schedules.collectAsState()
     val runtimeStatus by viewModel.runtimeStatus.collectAsState()
     val permissions by viewModel.permissions.collectAsState()
+    val appSettings by viewModel.appSettings.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedTabName by rememberSaveable {
+        mutableStateOf(if (startOnSettings) MainTab.SETTINGS.name else MainTab.CLASSES.name)
+    }
+    val selectedTab = MainTab.valueOf(selectedTabName)
 
     LaunchedEffect(viewModel) {
         viewModel.messages.collectLatest { snackbarHostState.showSnackbar(it) }
@@ -121,6 +140,9 @@ fun ClassQuietRoot(
     BackHandler(enabled = editorOpen) {
         editorOpen = false
         editingId = null
+    }
+    BackHandler(enabled = !editorOpen && selectedTab != MainTab.CLASSES) {
+        selectedTabName = MainTab.CLASSES.name
     }
 
     if (editorOpen) {
@@ -139,27 +161,84 @@ fun ClassQuietRoot(
             },
         )
     } else {
-        HomeScreen(
-            schedules = schedules,
-            runtimeStatus = runtimeStatus,
-            permissions = permissions,
-            snackbarHostState = snackbarHostState,
-            onAdd = {
-                editingId = null
-                editorOpen = true
-            },
-            onEdit = {
-                editingId = it
-                editorOpen = true
-            },
-            onDelete = viewModel::delete,
-            onEnabledChange = viewModel::setEnabled,
-            onCheckNow = viewModel::checkNow,
-            requestForegroundLocation = requestForegroundLocation,
-            openBackgroundLocationSettings = openBackgroundLocationSettings,
-            openDndSettings = openDndSettings,
-            openExactAlarmSettings = openExactAlarmSettings,
-            openLocationServices = openLocationServices,
+        val onAdd = {
+            editingId = null
+            editorOpen = true
+        }
+        val onEdit: (String) -> Unit = {
+            editingId = it
+            editorOpen = true
+        }
+        val bottomBar: @Composable () -> Unit = {
+            MainNavigationBar(
+                selected = selectedTab,
+                onSelected = { selectedTabName = it.name },
+            )
+        }
+        when (selectedTab) {
+            MainTab.CLASSES -> HomeScreen(
+                schedules = schedules,
+                runtimeStatus = runtimeStatus,
+                permissions = permissions,
+                snackbarHostState = snackbarHostState,
+                onAdd = onAdd,
+                onEdit = onEdit,
+                onDelete = viewModel::delete,
+                onEnabledChange = viewModel::setEnabled,
+                onCheckNow = viewModel::checkNow,
+                requestForegroundLocation = requestForegroundLocation,
+                openBackgroundLocationSettings = openBackgroundLocationSettings,
+                openDndSettings = openDndSettings,
+                openExactAlarmSettings = openExactAlarmSettings,
+                openLocationServices = openLocationServices,
+                requestNotificationPermission = requestNotificationPermission,
+                bottomBar = bottomBar,
+            )
+
+            MainTab.WEEK -> WeekCalendarScreen(
+                schedules = schedules,
+                activeScheduleIds = runtimeStatus.activeScheduleIds,
+                onEdit = onEdit,
+                onAdd = onAdd,
+                snackbarHostState = snackbarHostState,
+                bottomBar = bottomBar,
+            )
+
+            MainTab.SETTINGS -> SettingsScreen(
+                settings = appSettings,
+                onSaveRuleName = viewModel::setDndRuleName,
+                onExport = exportConfiguration,
+                onImport = importConfiguration,
+                snackbarHostState = snackbarHostState,
+                bottomBar = bottomBar,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MainNavigationBar(
+    selected: MainTab,
+    onSelected: (MainTab) -> Unit,
+) {
+    NavigationBar {
+        NavigationBarItem(
+            selected = selected == MainTab.CLASSES,
+            onClick = { onSelected(MainTab.CLASSES) },
+            icon = { Icon(Icons.Default.School, contentDescription = null) },
+            label = { Text("Classes") },
+        )
+        NavigationBarItem(
+            selected = selected == MainTab.WEEK,
+            onClick = { onSelected(MainTab.WEEK) },
+            icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+            label = { Text("Week") },
+        )
+        NavigationBarItem(
+            selected = selected == MainTab.SETTINGS,
+            onClick = { onSelected(MainTab.SETTINGS) },
+            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+            label = { Text("Settings") },
         )
     }
 }
@@ -181,13 +260,15 @@ private fun HomeScreen(
     openDndSettings: () -> Unit,
     openExactAlarmSettings: () -> Unit,
     openLocationServices: () -> Unit,
+    requestNotificationPermission: () -> Unit,
+    bottomBar: @Composable () -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("ClassQuiet", fontWeight = FontWeight.SemiBold)
+                        Text("Quiet Classes", fontWeight = FontWeight.SemiBold)
                         Text(
                             "Time + place aware DND",
                             style = MaterialTheme.typography.labelMedium,
@@ -203,6 +284,7 @@ private fun HomeScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = bottomBar,
         floatingActionButton = {
             FloatingActionButton(onClick = onAdd) {
                 Icon(Icons.Default.Add, contentDescription = "Add a class")
@@ -217,15 +299,18 @@ private fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { RuntimeStatusCard(runtimeStatus) }
-            item {
-                SetupCard(
-                    permissions = permissions,
-                    requestForegroundLocation = requestForegroundLocation,
-                    openBackgroundLocationSettings = openBackgroundLocationSettings,
-                    openDndSettings = openDndSettings,
-                    openExactAlarmSettings = openExactAlarmSettings,
-                    openLocationServices = openLocationServices,
-                )
+            if (!permissions.ready) {
+                item {
+                    SetupCard(
+                        permissions = permissions,
+                        requestForegroundLocation = requestForegroundLocation,
+                        openBackgroundLocationSettings = openBackgroundLocationSettings,
+                        openDndSettings = openDndSettings,
+                        openExactAlarmSettings = openExactAlarmSettings,
+                        openLocationServices = openLocationServices,
+                        requestNotificationPermission = requestNotificationPermission,
+                    )
+                }
             }
             item {
                 Row(
@@ -328,6 +413,7 @@ private fun SetupCard(
     openDndSettings: () -> Unit,
     openExactAlarmSettings: () -> Unit,
     openLocationServices: () -> Unit,
+    requestNotificationPermission: () -> Unit,
 ) {
     var expanded by rememberSaveable(permissions.ready) { mutableStateOf(!permissions.ready) }
     Card(
@@ -347,12 +433,12 @@ private fun SetupCard(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (permissions.ready) "Setup complete" else "Finish setup",
+                        "Finish setup",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        "${permissions.completedCount} of 5 requirements ready",
+                        "${permissions.completedCount} of ${PermissionSnapshot.REQUIREMENT_COUNT} requirements ready",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -366,7 +452,9 @@ private fun SetupCard(
                 Column {
                     Spacer(Modifier.height(12.dp))
                     LinearProgressIndicator(
-                        progress = { permissions.completedCount / 5f },
+                        progress = {
+                            permissions.completedCount / PermissionSnapshot.REQUIREMENT_COUNT.toFloat()
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(12.dp))
@@ -387,7 +475,7 @@ private fun SetupCard(
                     )
                     PermissionRow(
                         title = "Do Not Disturb access",
-                        detail = "Lets ClassQuiet activate its own Android Mode.",
+                        detail = "Lets Quiet Classes activate its own Android Mode.",
                         granted = permissions.dndAccess,
                         actionLabel = "Allow",
                         onAction = openDndSettings,
@@ -405,6 +493,13 @@ private fun SetupCard(
                         granted = permissions.locationServices,
                         actionLabel = "Turn on",
                         onAction = openLocationServices,
+                    )
+                    PermissionRow(
+                        title = "Active mode notification",
+                        detail = "Shows a silent ongoing notification while a class DND mode is active.",
+                        granted = permissions.notifications,
+                        actionLabel = "Allow",
+                        onAction = requestNotificationPermission,
                     )
                 }
             }
@@ -632,6 +727,16 @@ private fun ScheduleEditorScreen(
     var endMinutes by rememberSaveable(key) { mutableStateOf(existing?.endMinutes ?: 10 * 60) }
     var selectedModeName by rememberSaveable(key) {
         mutableStateOf((existing?.dndMode ?: DndMode.VISUAL_ONLY).name)
+    }
+    var customSettingsJson by rememberSaveable(key) {
+        mutableStateOf(
+            (existing?.customDndSettings ?: CustomDndSettings()).toJson().toString(),
+        )
+    }
+    val customSettings = remember(customSettingsJson) {
+        CustomDndSettings.fromJson(
+            runCatching { JSONObject(customSettingsJson) }.getOrNull(),
+        )
     }
     var enabled by rememberSaveable(key) { mutableStateOf(existing?.enabled ?: true) }
     var showCoordinates by rememberSaveable(key) { mutableStateOf(false) }
@@ -884,6 +989,14 @@ private fun ScheduleEditorScreen(
                     onSelect = { selectedModeName = mode.name },
                 )
             }
+            AnimatedVisibility(selectedModeName == DndMode.CUSTOM.name) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CustomDndSettingsEditor(
+                        value = customSettings,
+                        onValueChange = { customSettingsJson = it.toJson().toString() },
+                    )
+                }
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             Row(
@@ -927,6 +1040,7 @@ private fun ScheduleEditorScreen(
                             startMinutes = startMinutes,
                             endMinutes = endMinutes,
                             dndMode = DndMode.fromStored(selectedModeName),
+                            customDndSettings = customSettings,
                             enabled = enabled,
                         )
                         if (viewModel.save(schedule)) onSaved()

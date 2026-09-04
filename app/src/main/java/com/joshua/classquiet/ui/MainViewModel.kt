@@ -1,9 +1,12 @@
 package com.joshua.classquiet.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.joshua.classquiet.ClassQuietApplication
+import com.joshua.classquiet.data.AppSettings
+import com.joshua.classquiet.data.ConfigurationBackup
 import com.joshua.classquiet.location.PermissionSnapshot
 import com.joshua.classquiet.location.ResolvedLocation
 import com.joshua.classquiet.model.ClassSchedule
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -20,6 +24,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val schedules: StateFlow<List<ClassSchedule>> = app.scheduleRepository.schedules
     val runtimeStatus = app.runtimeState.status
+    val appSettings = app.appSettings.settings
 
     private val mutablePermissions = MutableStateFlow(app.permissionMonitor.snapshot())
     val permissions: StateFlow<PermissionSnapshot> = mutablePermissions.asStateFlow()
@@ -89,5 +94,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshPermissionsOnly() {
         mutablePermissions.value = app.permissionMonitor.snapshot()
+    }
+
+    fun setDndRuleName(name: String): Boolean {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) {
+            mutableMessages.tryEmit("Enter a name for the Android Mode.")
+            return false
+        }
+        if (trimmed.length > AppSettings.MAX_RULE_NAME_LENGTH) {
+            mutableMessages.tryEmit(
+                "Mode names can be at most ${AppSettings.MAX_RULE_NAME_LENGTH} characters.",
+            )
+            return false
+        }
+        return runCatching {
+            app.appSettings.setDndRuleName(trimmed)
+            val renameResult = app.dndController.updateRuleName(trimmed)
+            mutableMessages.tryEmit(renameResult.message)
+            if (app.runtimeState.status.value.state == com.joshua.classquiet.data.RuntimeState.ACTIVE) {
+                app.coordinator.enqueueEvaluation("mode_name_changed")
+            }
+        }.onFailure {
+            mutableMessages.tryEmit(it.message ?: "Could not save the Android Mode name.")
+        }.isSuccess
+    }
+
+    fun exportConfiguration(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val json = ConfigurationBackup.encode(
+                    schedules = app.scheduleRepository.current(),
+                    settings = app.appSettings.current(),
+                )
+                val stream = checkNotNull(
+                    getApplication<Application>().contentResolver.openOutputStream(uri, "wt"),
+                ) { "Android could not open the selected file." }
+                stream.bufferedWriter(Charsets.UTF_8).use { it.write(json) }
+            }.onSuccess {
+                mutableMessages.tryEmit("Backup exported successfully.")
+            }.onFailure {
+                mutableMessages.tryEmit(it.message ?: "Could not export the backup.")
+            }
+        }
+    }
+
+    fun importConfiguration(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val stream = checkNotNull(
+                    getApplication<Application>().contentResolver.openInputStream(uri),
+                ) { "Android could not open the selected file." }
+                val raw = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                val imported = ConfigurationBackup.decode(raw)
+                app.scheduleRepository.replaceAll(imported.schedules)
+                app.appSettings.replace(imported.settings)
+                if (app.dndController.hasPolicyAccess()) {
+                    app.dndController.updateRuleName(imported.settings.dndRuleName)
+                }
+                app.coordinator.refreshBackgroundRegistrations()
+                app.coordinator.enqueueEvaluation("backup_imported")
+                "${imported.schedules.size} classes imported."
+            }.onSuccess {
+                mutableMessages.tryEmit(it)
+            }.onFailure {
+                mutableMessages.tryEmit(it.message ?: "Could not import the backup.")
+            }
+        }
     }
 }

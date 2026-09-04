@@ -1,6 +1,7 @@
 package com.joshua.classquiet
 
 import com.joshua.classquiet.model.ClassSchedule
+import com.joshua.classquiet.model.CustomDndSettings
 import com.joshua.classquiet.model.DndMode
 import com.joshua.classquiet.model.LocationSnapshot
 import com.joshua.classquiet.util.ScheduleEngine
@@ -94,6 +95,22 @@ class ScheduleEngineTest {
         assertEquals(DndMode.TOTAL_SILENCE, ScheduleEngine.strongestMode(listOf(light, strict)))
     }
 
+    @Test
+    fun `restrictive custom mode can win an overlap`() {
+        val alarmsOnly = sampleSchedule(dndMode = DndMode.ALARMS_ONLY)
+        val custom = sampleSchedule(
+            dndMode = DndMode.CUSTOM,
+            customDndSettings = CustomDndSettings(
+                allowAlarms = false,
+                showNotificationList = false,
+                showStatusBarIcons = false,
+                showBadges = false,
+            ),
+        )
+
+        assertEquals(DndMode.CUSTOM, ScheduleEngine.strongestMode(listOf(alarmsOnly, custom)))
+    }
+
     private fun sampleSchedule(
         days: Set<DayOfWeek> = setOf(DayOfWeek.MONDAY),
         startMinutes: Int = 9 * 60,
@@ -102,6 +119,7 @@ class ScheduleEngineTest {
         longitude: Double = -80.4139,
         radiusMeters: Float = 150f,
         dndMode: DndMode = DndMode.VISUAL_ONLY,
+        customDndSettings: CustomDndSettings = CustomDndSettings(),
     ) = ClassSchedule(
         name = "Test class",
         locationLabel = "Test Hall",
@@ -113,5 +131,6 @@ class ScheduleEngineTest {
         startMinutes = startMinutes,
         endMinutes = endMinutes,
         dndMode = dndMode,
+        customDndSettings = customDndSettings,
     )
 }

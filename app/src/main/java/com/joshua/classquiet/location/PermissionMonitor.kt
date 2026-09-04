@@ -15,13 +15,25 @@ data class PermissionSnapshot(
     val dndAccess: Boolean,
     val exactAlarms: Boolean,
     val locationServices: Boolean,
+    val notifications: Boolean,
 ) {
     val ready: Boolean
-        get() = fineLocation && backgroundLocation && dndAccess && exactAlarms && locationServices
+        get() = fineLocation && backgroundLocation && dndAccess && exactAlarms &&
+            locationServices && notifications
 
     val completedCount: Int
-        get() = listOf(fineLocation, backgroundLocation, dndAccess, exactAlarms, locationServices)
-            .count { it }
+        get() = listOf(
+            fineLocation,
+            backgroundLocation,
+            dndAccess,
+            exactAlarms,
+            locationServices,
+            notifications,
+        ).count { it }
+
+    companion object {
+        const val REQUIREMENT_COUNT = 6
+    }
 }
 
 class PermissionMonitor(private val context: Context) {
@@ -48,7 +60,13 @@ class PermissionMonitor(private val context: Context) {
             exactAlarms = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
                 alarmManager.canScheduleExactAlarms(),
             locationServices = locationManager.isLocationEnabled,
+            notifications = (
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS,
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) && notificationManager.areNotificationsEnabled(),
         )
     }
 }
-

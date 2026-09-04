@@ -2,6 +2,7 @@ package com.joshua.classquiet.util
 
 import com.joshua.classquiet.model.ClassSchedule
 import com.joshua.classquiet.model.DndMode
+import com.joshua.classquiet.model.PeopleAudience
 import com.joshua.classquiet.model.LocationSnapshot
 import com.joshua.classquiet.model.asTime
 import java.time.LocalDate
@@ -56,8 +57,11 @@ object ScheduleEngine {
         return candidates.minOrNull()
     }
 
+    fun strongestSchedule(schedules: List<ClassSchedule>): ClassSchedule? =
+        schedules.maxByOrNull(::restrictionScore)
+
     fun strongestMode(schedules: List<ClassSchedule>): DndMode? =
-        schedules.maxByOrNull { it.dndMode.severity }?.dndMode
+        strongestSchedule(schedules)?.dndMode
 
     fun isInside(
         schedule: ClassSchedule,
@@ -89,6 +93,43 @@ object ScheduleEngine {
             cos(firstLatitudeRadians) * cos(secondLatitudeRadians) *
             sin(longitudeDelta / 2).let { it * it }
         return 2 * EARTH_RADIUS_METERS * asin(sqrt(haversine.coerceIn(0.0, 1.0)))
+    }
+
+    private fun restrictionScore(schedule: ClassSchedule): Int {
+        if (schedule.dndMode != DndMode.CUSTOM) {
+            return when (schedule.dndMode) {
+                DndMode.VISUAL_ONLY -> 200
+                DndMode.ALARMS_ONLY -> 750
+                DndMode.TOTAL_SILENCE -> 1_000
+                DndMode.CUSTOM -> error("Handled above")
+            }
+        }
+        val custom = schedule.customDndSettings
+        var score = 0
+        if (!custom.allowAlarms) score += 180
+        if (!custom.allowMedia) score += 150
+        if (!custom.allowSystemSounds) score += 90
+        if (!custom.allowReminders) score += 45
+        if (!custom.allowEvents) score += 45
+        if (!custom.allowRepeatCallers) score += 35
+        if (!custom.allowPriorityChannels) score += 35
+        score += when (custom.calls) {
+            PeopleAudience.ANYONE -> 0
+            PeopleAudience.CONTACTS -> 30
+            PeopleAudience.STARRED -> 60
+            PeopleAudience.NONE -> 90
+        }
+        score += when (custom.messages) {
+            PeopleAudience.ANYONE -> 0
+            PeopleAudience.CONTACTS -> 25
+            PeopleAudience.STARRED -> 50
+            PeopleAudience.NONE -> 75
+        }
+        if (!custom.showNotificationList) score += 35
+        if (!custom.showStatusBarIcons) score += 20
+        if (!custom.showPeeking) score += 15
+        if (!custom.showBadges) score += 10
+        return score.coerceAtMost(950)
     }
 
     private fun windowStartingOn(

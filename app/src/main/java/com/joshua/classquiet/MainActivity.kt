@@ -3,6 +3,8 @@ package com.joshua.classquiet
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.app.NotificationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import com.joshua.classquiet.ui.ClassQuietRoot
 import com.joshua.classquiet.ui.MainViewModel
 import com.joshua.classquiet.ui.theme.ClassQuietTheme
@@ -28,6 +31,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {
+        viewModel.refreshPermissionsOnly()
+        if (!it) {
+            viewModel.showMessage("Notification access is needed to show when class mode is active.")
+        }
+    }
+
+    private val exportConfigurationLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        uri?.let(viewModel::exportConfiguration)
+    }
+
+    private val importConfigurationLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let(viewModel::importConfiguration)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -40,6 +64,10 @@ class MainActivity : ComponentActivity() {
                     openDndSettings = ::openDndSettings,
                     openExactAlarmSettings = ::openExactAlarmSettings,
                     openLocationServices = ::openLocationServices,
+                    requestNotificationPermission = ::requestNotificationPermission,
+                    exportConfiguration = ::exportConfiguration,
+                    importConfiguration = ::importConfiguration,
+                    startOnSettings = intent?.action == NotificationManager.ACTION_AUTOMATIC_ZEN_RULE,
                 )
             }
         }
@@ -87,5 +115,32 @@ class MainActivity : ComponentActivity() {
 
     private fun openLocationServices() {
         startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+    }
+
+    private fun requestNotificationPermission() {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName),
+            )
+        }
+    }
+
+    private fun exportConfiguration() {
+        exportConfigurationLauncher.launch(
+            "quiet-classes-backup-${java.time.LocalDate.now()}.json",
+        )
+    }
+
+    private fun importConfiguration() {
+        importConfigurationLauncher.launch(arrayOf("application/json", "text/*"))
     }
 }

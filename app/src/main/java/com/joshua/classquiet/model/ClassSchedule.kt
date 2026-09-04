@@ -19,19 +19,112 @@ enum class DndMode(
         description = "Notifications stay visible, but notification sounds and vibration are blocked. Alarms and media may play.",
     ),
     ALARMS_ONLY(
-        severity = 2,
+        severity = 3,
         displayName = "Alarms only",
         description = "Calls and notifications are silenced. Only alarms are allowed to interrupt you.",
     ),
     TOTAL_SILENCE(
-        severity = 3,
+        severity = 4,
         displayName = "Total silence",
         description = "Blocks calls, notifications, alarms, vibration, and general media audio.",
+    ),
+    CUSTOM(
+        severity = 2,
+        displayName = "Custom",
+        description = "Choose exactly which sounds, people, and visual notification effects are allowed.",
     );
 
     companion object {
         fun fromStored(value: String?): DndMode =
             entries.firstOrNull { it.name == value } ?: VISUAL_ONLY
+    }
+}
+
+enum class PeopleAudience(val displayName: String) {
+    NONE("Nobody"),
+    STARRED("Starred contacts"),
+    CONTACTS("Contacts"),
+    ANYONE("Anyone");
+
+    companion object {
+        fun fromStored(value: String?): PeopleAudience =
+            entries.firstOrNull { it.name == value } ?: NONE
+    }
+}
+
+enum class ConversationAudience(val displayName: String) {
+    NONE("None"),
+    IMPORTANT("Priority conversations"),
+    ANYONE("All conversations");
+
+    companion object {
+        fun fromStored(value: String?): ConversationAudience =
+            entries.firstOrNull { it.name == value } ?: NONE
+    }
+}
+
+data class CustomDndSettings(
+    val allowAlarms: Boolean = true,
+    val allowMedia: Boolean = false,
+    val allowSystemSounds: Boolean = false,
+    val allowReminders: Boolean = false,
+    val allowEvents: Boolean = false,
+    val allowRepeatCallers: Boolean = false,
+    val allowPriorityChannels: Boolean = false,
+    val calls: PeopleAudience = PeopleAudience.NONE,
+    val messages: PeopleAudience = PeopleAudience.NONE,
+    val conversations: ConversationAudience = ConversationAudience.NONE,
+    val showFullScreenIntents: Boolean = false,
+    val showLights: Boolean = false,
+    val showPeeking: Boolean = false,
+    val showStatusBarIcons: Boolean = true,
+    val showBadges: Boolean = true,
+    val showAmbientDisplay: Boolean = false,
+    val showNotificationList: Boolean = true,
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("allowAlarms", allowAlarms)
+        put("allowMedia", allowMedia)
+        put("allowSystemSounds", allowSystemSounds)
+        put("allowReminders", allowReminders)
+        put("allowEvents", allowEvents)
+        put("allowRepeatCallers", allowRepeatCallers)
+        put("allowPriorityChannels", allowPriorityChannels)
+        put("calls", calls.name)
+        put("messages", messages.name)
+        put("conversations", conversations.name)
+        put("showFullScreenIntents", showFullScreenIntents)
+        put("showLights", showLights)
+        put("showPeeking", showPeeking)
+        put("showStatusBarIcons", showStatusBarIcons)
+        put("showBadges", showBadges)
+        put("showAmbientDisplay", showAmbientDisplay)
+        put("showNotificationList", showNotificationList)
+    }
+
+    companion object {
+        fun fromJson(json: JSONObject?): CustomDndSettings {
+            if (json == null) return CustomDndSettings()
+            return CustomDndSettings(
+                allowAlarms = json.optBoolean("allowAlarms", true),
+                allowMedia = json.optBoolean("allowMedia", false),
+                allowSystemSounds = json.optBoolean("allowSystemSounds", false),
+                allowReminders = json.optBoolean("allowReminders", false),
+                allowEvents = json.optBoolean("allowEvents", false),
+                allowRepeatCallers = json.optBoolean("allowRepeatCallers", false),
+                allowPriorityChannels = json.optBoolean("allowPriorityChannels", false),
+                calls = PeopleAudience.fromStored(json.optString("calls")),
+                messages = PeopleAudience.fromStored(json.optString("messages")),
+                conversations = ConversationAudience.fromStored(json.optString("conversations")),
+                showFullScreenIntents = json.optBoolean("showFullScreenIntents", false),
+                showLights = json.optBoolean("showLights", false),
+                showPeeking = json.optBoolean("showPeeking", false),
+                showStatusBarIcons = json.optBoolean("showStatusBarIcons", true),
+                showBadges = json.optBoolean("showBadges", true),
+                showAmbientDisplay = json.optBoolean("showAmbientDisplay", false),
+                showNotificationList = json.optBoolean("showNotificationList", true),
+            )
+        }
     }
 }
 
@@ -47,6 +140,7 @@ data class ClassSchedule(
     val startMinutes: Int,
     val endMinutes: Int,
     val dndMode: DndMode,
+    val customDndSettings: CustomDndSettings = CustomDndSettings(),
     val enabled: Boolean = true,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
@@ -61,6 +155,7 @@ data class ClassSchedule(
         put("startMinutes", startMinutes)
         put("endMinutes", endMinutes)
         put("dndMode", dndMode.name)
+        put("customDndSettings", customDndSettings.toJson())
         put("enabled", enabled)
     }
 
@@ -86,6 +181,9 @@ data class ClassSchedule(
                 startMinutes = json.optInt("startMinutes", 9 * 60),
                 endMinutes = json.optInt("endMinutes", 10 * 60),
                 dndMode = DndMode.fromStored(json.optString("dndMode")),
+                customDndSettings = CustomDndSettings.fromJson(
+                    json.optJSONObject("customDndSettings"),
+                ),
                 enabled = json.optBoolean("enabled", true),
             )
         }

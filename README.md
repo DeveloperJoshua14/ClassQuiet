@@ -1,38 +1,44 @@
-# ClassQuiet
+# Quiet Classes
 
-ClassQuiet is a native Android app that turns on Do Not Disturb only when both conditions are true:
+Quiet Classes is a native Android app that activates Do Not Disturb only when both conditions are true:
 
 1. A saved class is currently in session.
 2. The phone is physically inside that class's saved location radius.
 
-It is designed for a Pixel running Android 17. The app compiles against stable API 36 and targets API 36, which is fully compatible with Android 17/API 37. The package name is `com.joshua.classquiet`.
+This is version 1.1.0. It is designed for a Pixel running Android 17. The app compiles against stable API 36 and targets API 36, which remains forward-compatible with Android 17. Its unchanged package name is `com.joshua.classquiet`, so this release can update the earlier ClassQuiet build while preserving its stored classes.
 
 ## What is included
 
 - Add, edit, enable, disable, and delete recurring classes.
-- Pick one or more weekdays plus start and end times.
-- Find a building by street address, save your current GPS location, or enter coordinates manually.
-- Choose a radius from 50 to 500 meters.
-- Choose a DND level for every class:
-  - **Visual only:** ordinary notifications remain visible but do not make sound or vibrate; alarms and media may play.
-  - **Alarms only:** calls and ordinary notifications are suppressed; alarms can interrupt.
-  - **Total silence:** all notifications, vibration, alarms, and general audio streams are muted. Audio for an already-active phone call is not muted by Android.
-- If qualifying classes overlap, the strictest level wins.
-- Exact alarms check at class boundaries, geofences detect arriving or leaving, and a 15-minute WorkManager check repairs missed events.
-- Re-registers alarms and geofences after reboot, app upgrade, clock changes, and timezone changes.
-- Stores schedules and coordinates locally in Android `SharedPreferences`; there is no account, analytics service, or custom server.
+- Pick weekdays, start and end times, a building or room, and a 50–500 m location radius.
+- Find a street address, save the current GPS location, or enter coordinates manually.
+- View the schedule in either the normal class list or a seven-day calendar showing time and location.
+- Choose one of four DND levels for every class:
+  - **Visual only:** notifications remain visible but make no sound or vibration; alarms and media may play.
+  - **Alarms only:** calls and notifications are suppressed; alarms can interrupt.
+  - **Total silence:** calls, notifications, alarms, vibration, and general media audio are blocked.
+  - **Custom:** independently configure alarms, media, system sounds, reminders, events, repeat callers, priority channels, calls, messages, conversations, and Android's visual notification effects.
+- Rename the app-owned Android Mode from the Settings tab.
+- Show a silent ongoing notification containing the active class and DND level.
+- Export all classes, locations, schedules, DND choices, custom policies, and app settings to one JSON backup; import it on another device.
+- Hide the first-run setup card automatically once all six requirements are ready.
+- If qualifying classes overlap, apply the most restrictive configured policy.
+- Use exact alarms at class boundaries, geofences for arrivals and departures, and a 15-minute WorkManager check to repair missed events.
+- Re-register alarms and geofences after reboot, app upgrade, clock changes, and timezone changes.
+- Keep schedules and coordinates on-device unless the user explicitly exports a backup. There is no account, analytics service, or custom server.
 
 ## Open and run it
 
-### Android Studio (easiest)
+### Android Studio
 
-1. Install the current stable Android Studio.
-2. Extract the project ZIP and open the `ClassQuiet` folder—not its parent folder.
-3. Let Android Studio perform Gradle Sync. If prompted, install Android SDK Platform 36 and accept the SDK licenses.
-4. On the Pixel, enable Developer options and USB debugging.
-5. Connect the phone by USB, approve its debugging prompt, choose the Pixel in Android Studio, and press **Run**.
+1. Extract the project ZIP.
+2. In Android Studio, open the inner `ClassQuiet` folder—the folder containing `settings.gradle.kts`.
+3. If Android Studio asks for the Gradle JVM, choose **JVM 21** or its bundled JDK 21. Do not use JVM 25 with Gradle 8.13.
+4. Let Gradle Sync finish. The first sync downloads Gradle and dependencies and may take several minutes. If prompted, install Android SDK Platform 36 and accept the licenses.
+5. On the Pixel, enable Developer options and USB debugging.
+6. Connect the phone by USB, approve the debugging prompt, select the Pixel in Android Studio, and press **Run**.
 
-The included Gradle bootstrap pins Gradle 8.13 and verifies the official distribution with SHA-256 before using it. The first sync therefore needs internet access.
+The wrapper pins Gradle 8.13 and verifies the official distribution with SHA-256. The first sync therefore needs working internet access.
 
 ### Windows terminal
 
@@ -43,57 +49,68 @@ From the extracted `ClassQuiet` directory:
 .\gradlew.bat installDebug
 ```
 
-The debug APK is produced at:
+The debug APK is produced at `app\build\outputs\apk\debug\app-debug.apk`.
 
-```text
-app\build\outputs\apk\debug\app-debug.apk
-```
+## Updating from the earlier build
 
-If `adb` is configured, `installDebug` installs it directly on the connected phone.
+Build and run version 1.1.0 on the same Pixel. Because the application ID is unchanged and the version code is higher, Android Studio should install it as an update and retain the existing class list. This assumes both builds use the same signing key, which is normally true when they are run from the same Windows account and Android Studio installation.
+
+Do not uninstall the earlier app first unless Android reports a signing conflict; uninstalling removes its local data. Version 1.0 did not include the new export tool.
 
 ## First-run setup on the Pixel
 
-The home screen shows five requirements and links to the correct Android settings:
+The home screen shows six requirements and opens the relevant Android settings:
 
 1. **Precise location:** choose precise rather than approximate location.
-2. **Background location:** open the app's settings, then select **Permissions → Location → Allow all the time**.
-3. **Do Not Disturb access:** allow ClassQuiet to manage DND. On recent Android versions, ClassQuiet receives its own system Mode instead of rewriting your personal DND Mode.
+2. **Background location:** select **Permissions → Location → Allow all the time** in the app's Android settings.
+3. **Do Not Disturb access:** allow Quiet Classes to manage its own Android Mode.
 4. **Alarms & reminders:** allow exact alarms so boundary checks occur at the scheduled minute.
 5. **Location Services:** keep the phone's system location switch on.
+6. **Notifications:** allow notifications so the app can show its silent active-mode status.
 
-Android intentionally asks for these privileges separately; an app cannot silently grant them to itself.
+Once all six are ready, the setup card disappears. Android intentionally grants these privileges separately; an app cannot silently grant them to itself.
+
+## Back up or transfer the setup
+
+Open **Settings → Backup and transfer** inside Quiet Classes:
+
+- **Export backup** creates a human-readable `.json` file using Android's document picker.
+- Move that file by Drive, USB, email, or another method of your choice.
+- On the other phone, install Quiet Classes and choose **Import backup**. Import replaces the classes and app settings currently stored on that device, after confirmation.
+
+Android permissions are not transferable and must be granted on each device.
 
 ## Recommended first test
 
 1. Stand in the location you want to test.
 2. Add a temporary class starting two or three minutes in the future and ending five minutes later.
 3. Tap **Use here**, select a 150 m radius, and choose **Visual only**.
-4. Lock the phone and wait for the start time. The ClassQuiet status should change after the next time it is opened, and Android should show the ClassQuiet Mode as active.
-5. Repeat once with **Total silence**, then delete the temporary class.
+4. Lock the phone and wait for the start time. Android should activate the named Mode and Quiet Classes should post its silent status notification.
+5. Repeat once with **Total silence** or **Custom**, then delete the temporary class.
 
 For real classes, 150–250 m is a reasonable starting radius for a campus building. Increase it if GPS drift causes missed activation; decrease it where nearby buildings overlap.
 
 ## Reliability notes
 
-- Android can batch background geofence transitions by a couple of minutes. ClassQuiet also schedules an exact boundary alarm and requests a current GPS fix at class start, so it does not rely on geofencing alone.
+- Android can batch background geofence transitions by a couple of minutes. Quiet Classes also schedules an exact boundary alarm and requests a current GPS fix at class start, so it does not rely on geofencing alone.
 - The app uses the last confirmed geofence state only when Android cannot provide a fresh location. It still turns class mode off at the scheduled end or after a confirmed geofence exit.
-- If the user removes DND, background-location, or exact-alarm access, Android prevents the corresponding feature. The setup card will identify the missing requirement.
 - Force-stopping an Android app disables its alarms and receivers until the app is opened again. Swiping it out of Recents does not force-stop it.
 - Geofencing depends on Google Play services, which is present on a Pixel.
+- Real DND, exact-alarm, notification, and geofence behavior must be tested on a physical phone because plain JVM tests do not provide those Android system services.
 
 ## Project structure
 
-- `model/` — class schedule and DND profile data.
-- `data/` — on-device schedule and runtime-state storage.
+- `model/` — class schedule, DND profile, and custom-policy data.
+- `data/` — schedules, settings, runtime state, and backup serialization.
 - `util/ScheduleEngine.kt` — time-window, overnight-class, distance, and overlap logic.
-- `dnd/` — Android notification-policy integration.
-- `location/` — current-location, geocoding, and geofence registration.
+- `dnd/` — the named Android Mode and `ZenPolicy` integration.
+- `notification/` — the active-mode status notification.
+- `location/` — current location, geocoding, and geofence registration.
 - `background/` — exact alarms, receivers, WorkManager evaluation, and reboot recovery.
-- `ui/` — Jetpack Compose home, setup, and class editor screens.
+- `ui/` — Jetpack Compose class list, seven-day view, settings, setup, and class editor.
 
-Run local unit tests with `gradlew test`. Real DND, exact-alarm, and geofence behavior must be tested on a physical Android device because those system services are not represented by plain JVM unit tests.
+Run local unit tests with `gradlew test`.
 
-## Important publishing note
+## Publishing note
 
-This build is suitable for personal sideloading. Google Play restricts use of exact-alarm and background-location permissions. If the app is later published publicly, its store listing, permission declarations, disclosure screens, and possibly its scheduling implementation will need a Play policy review.
-
+This build is suitable for personal sideloading. Google Play restricts exact-alarm and background-location permissions. Public distribution would require a Play policy review of the store listing, permission declarations, disclosures, and possibly the scheduling implementation.

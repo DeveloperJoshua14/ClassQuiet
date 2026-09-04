@@ -33,6 +33,10 @@ class ScheduleRepository(context: Context) {
         persist(current().map { if (it.id == id) it.copy(enabled = enabled) else it })
     }
 
+    fun replaceAll(schedules: List<ClassSchedule>) = synchronized(lock) {
+        persist(schedules.distinctBy { it.id })
+    }
+
     private fun readSchedules(): List<ClassSchedule> {
         val raw = preferences.getString(KEY_SCHEDULES, null) ?: return emptyList()
         return runCatching {
@@ -65,4 +69,3 @@ class ScheduleRepository(context: Context) {
         const val KEY_SCHEDULES = "schedules"
     }
 }
-
