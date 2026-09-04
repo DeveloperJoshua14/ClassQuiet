@@ -36,7 +36,7 @@ class ActiveModeNotifier(context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_school_mode)
             .setContentTitle("$ruleName active")
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))

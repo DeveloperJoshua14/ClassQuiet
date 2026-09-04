@@ -37,6 +37,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshAfterResume() {
         mutablePermissions.value = app.permissionMonitor.snapshot()
+        app.dndController.migrateRuleIconIfNeeded()
         app.coordinator.refreshBackgroundRegistrations()
         app.coordinator.enqueueEvaluation("app_resume")
     }

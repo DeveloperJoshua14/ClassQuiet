@@ -36,6 +36,38 @@ class DndController(context: Context) {
 
     fun hasPolicyAccess(): Boolean = notificationManager.isNotificationPolicyAccessGranted
 
+    fun migrateRuleIconIfNeeded() {
+        if (
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM ||
+            !hasPolicyAccess() ||
+            preferences.getInt(KEY_RULE_SCHEMA_VERSION, 0) >= CURRENT_RULE_SCHEMA_VERSION
+        ) {
+            return
+        }
+        val storedId = preferences.getString(KEY_RULE_ID, null) ?: return
+        val existing = notificationManager.getAutomaticZenRule(storedId) ?: return
+        runCatching {
+            val replacement = AutomaticZenRule.Builder(existing)
+                .setIconResId(R.drawable.ic_school_mode)
+                .build()
+            check(notificationManager.removeAutomaticZenRule(storedId)) {
+                "Android did not allow the old Quiet Classes Mode to be replaced."
+            }
+            val replacementId = notificationManager.addAutomaticZenRule(replacement)
+            if (replacementId == null) {
+                preferences.edit()
+                    .remove(KEY_RULE_ID)
+                    .remove(KEY_RULE_SCHEMA_VERSION)
+                    .commit()
+            } else {
+                preferences.edit()
+                    .putString(KEY_RULE_ID, replacementId)
+                    .putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
+                    .commit()
+            }
+        }
+    }
+
     fun apply(schedule: ClassSchedule, ruleName: String): DndResult {
         if (!hasPolicyAccess()) {
             return DndResult(false, "Do Not Disturb access has not been granted.")
@@ -128,11 +160,20 @@ class DndController(context: Context) {
         val desired = buildRule(ruleName, profile)
 
         if (storedId != null && existing != null) {
-            check(notificationManager.updateAutomaticZenRule(storedId, desired)) {
-                "Android did not allow Quiet Classes to update its Mode. " +
-                    "Open Android Modes settings and make sure the Mode is enabled."
+            val needsIconMigration = preferences.getInt(KEY_RULE_SCHEMA_VERSION, 0) <
+                CURRENT_RULE_SCHEMA_VERSION
+            if (needsIconMigration && notificationManager.removeAutomaticZenRule(storedId)) {
+                preferences.edit().remove(KEY_RULE_ID).commit()
+            } else {
+                check(notificationManager.updateAutomaticZenRule(storedId, desired)) {
+                    "Android did not allow Quiet Classes to update its Mode. " +
+                        "Open Android Modes settings and make sure the Mode is enabled."
+                }
+                preferences.edit()
+                    .putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
+                    .apply()
+                return storedId
             }
-            return storedId
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
@@ -146,6 +187,7 @@ class DndController(context: Context) {
         check(
             preferences.edit()
                 .putString(KEY_RULE_ID, createdId)
+                .putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
                 .commit(),
         ) { "Could not remember the Android Mode identifier." }
         return createdId
@@ -157,7 +199,7 @@ class DndController(context: Context) {
             AutomaticZenRule.Builder(ruleName, conditionId)
                 .setConfigurationActivity(configurationActivity)
                 .setEnabled(true)
-                .setIconResId(R.drawable.ic_notification)
+                .setIconResId(R.drawable.ic_school_mode)
                 .setInterruptionFilter(profile.interruptionFilter)
                 .setZenPolicy(profile.policy)
                 .setManualInvocationAllowed(false)
@@ -270,5 +312,7 @@ class DndController(context: Context) {
         const val KEY_APP_ACTIVE = "app_active"
         const val KEY_PREVIOUS_FILTER = "previous_filter"
         const val KEY_RULE_ID = "automatic_rule_id"
+        const val KEY_RULE_SCHEMA_VERSION = "automatic_rule_schema_version"
+        const val CURRENT_RULE_SCHEMA_VERSION = 2
     }
 }

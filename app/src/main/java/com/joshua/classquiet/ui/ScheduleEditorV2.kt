@@ -1,12 +1,7 @@
 package com.joshua.classquiet.ui
 
-import android.annotation.SuppressLint
 import android.app.TimePickerDialog
 import android.text.format.DateFormat
-import android.webkit.JavascriptInterface
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -670,7 +665,6 @@ private fun LocationEditorScreen(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun MapPickerDialog(
     initialLatitude: Double?,
@@ -681,12 +675,11 @@ private fun MapPickerDialog(
 ) {
     var selectedLatitude by rememberSaveable { mutableStateOf(initialLatitude) }
     var selectedLongitude by rememberSaveable { mutableStateOf(initialLongitude) }
-    var webViewReference by remember { mutableStateOf<WebView?>(null) }
+    var mapViewReference by remember { mutableStateOf<OsmMapView?>(null) }
 
     DisposableEffect(Unit) {
         onDispose {
-            webViewReference?.removeJavascriptInterface("QuietClasses")
-            webViewReference?.destroy()
+            mapViewReference?.release()
         }
     }
 
@@ -708,7 +701,8 @@ private fun MapPickerDialog(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "Tap the map or drag the pin. The shaded circle is the saved radius.",
+                    "Tap to place the pin. Drag the map, and pinch or double tap to zoom. " +
+                        "The shaded circle is the saved radius.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -718,43 +712,18 @@ private fun MapPickerDialog(
                         .fillMaxWidth()
                         .weight(1f),
                     factory = { context ->
-                        WebView(context).apply {
-                            webViewReference = this
-                            settings.javaScriptEnabled = true
-                            settings.domStorageEnabled = true
-                            settings.allowFileAccess = false
-                            settings.allowContentAccess = false
-                            webViewClient = object : WebViewClient() {
-                                override fun shouldOverrideUrlLoading(
-                                    view: WebView?,
-                                    request: WebResourceRequest?,
-                                ): Boolean = true
+                        OsmMapView(context).apply {
+                            mapViewReference = this
+                            setInitialLocation(initialLatitude, initialLongitude)
+                            setRadiusMeters(radiusMeters)
+                            onLocationSelected = { latitude, longitude ->
+                                selectedLatitude = latitude
+                                selectedLongitude = longitude
                             }
-                            addJavascriptInterface(
-                                MapSelectionBridge(this) { latitude, longitude ->
-                                    selectedLatitude = latitude
-                                    selectedLongitude = longitude
-                                },
-                                "QuietClasses",
-                            )
-                            loadDataWithBaseURL(
-                                "https://classquiet.nafzigers.us/",
-                                mapPickerHtml(
-                                    initialLatitude,
-                                    initialLongitude,
-                                    radiusMeters,
-                                ),
-                                "text/html",
-                                "UTF-8",
-                                null,
-                            )
                         }
                     },
-                    update = { webView ->
-                        webView.evaluateJavascript(
-                            "window.setRadiusMeters(${radiusMeters.toDouble()});",
-                            null,
-                        )
+                    update = { mapView ->
+                        mapView.setRadiusMeters(radiusMeters)
                     },
                 )
                 Spacer(Modifier.height(12.dp))
@@ -782,185 +751,6 @@ private fun MapPickerDialog(
             }
         }
     }
-}
-
-private class MapSelectionBridge(
-    private val webView: WebView,
-    private val onLocationChanged: (Double, Double) -> Unit,
-) {
-    @JavascriptInterface
-    fun onLocationSelected(latitude: Double, longitude: Double) {
-        webView.post { onLocationChanged(latitude, longitude) }
-    }
-}
-
-private fun mapPickerHtml(
-    latitude: Double?,
-    longitude: Double?,
-    radiusMeters: Float,
-): String {
-    val initialLatitude = latitude?.toString() ?: "null"
-    val initialLongitude = longitude?.toString() ?: "null"
-    return """
-        <!doctype html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-          <style>
-            html, body, #map { height: 100%; width: 100%; margin: 0; background: #e7eaf3; }
-            body { overflow: hidden; }
-            .leaflet-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow,
-            .leaflet-tile-container, .leaflet-pane > svg, .leaflet-pane > canvas,
-            .leaflet-zoom-box, .leaflet-image-layer, .leaflet-layer {
-              position: absolute; left: 0; top: 0;
-            }
-            .leaflet-container { overflow: hidden; -webkit-tap-highlight-color: transparent; }
-            .leaflet-container .leaflet-overlay-pane svg { max-width: none !important; max-height: none !important; }
-            .leaflet-container img.leaflet-image-layer, .leaflet-container .leaflet-tile {
-              max-width: none !important; max-height: none !important; width: auto; padding: 0;
-            }
-            .leaflet-tile { visibility: hidden; }
-            .leaflet-tile-loaded { visibility: inherit; }
-            .leaflet-zoom-animated { transform-origin: 0 0; }
-            .leaflet-zoom-hide { visibility: hidden; }
-            .leaflet-pane { z-index: 400; }
-            .leaflet-tile-pane { z-index: 200; }
-            .leaflet-overlay-pane { z-index: 400; }
-            .leaflet-shadow-pane { z-index: 500; }
-            .leaflet-marker-pane { z-index: 600; }
-            .leaflet-tooltip-pane { z-index: 650; }
-            .leaflet-popup-pane { z-index: 700; }
-            .leaflet-map-pane canvas { z-index: 100; }
-            .leaflet-map-pane svg { z-index: 200; }
-            .leaflet-interactive { cursor: pointer; }
-            .leaflet-grab { cursor: grab; }
-            .leaflet-dragging .leaflet-grab, .leaflet-dragging .leaflet-marker-draggable { cursor: grabbing; }
-            .leaflet-control { position: relative; z-index: 800; pointer-events: auto; }
-            .leaflet-top, .leaflet-bottom { position: absolute; z-index: 1000; pointer-events: none; }
-            .leaflet-top { top: 0; }
-            .leaflet-right { right: 0; }
-            .leaflet-bottom { bottom: 0; }
-            .leaflet-left { left: 0; }
-            .leaflet-control { float: left; clear: both; }
-            .leaflet-right .leaflet-control { float: right; }
-            .leaflet-top .leaflet-control { margin-top: 10px; }
-            .leaflet-bottom .leaflet-control { margin-bottom: 10px; }
-            .leaflet-left .leaflet-control { margin-left: 10px; }
-            .leaflet-right .leaflet-control { margin-right: 10px; }
-            .leaflet-bar { border: 2px solid rgba(0,0,0,.2); border-radius: 5px; }
-            .leaflet-bar a {
-              display: block; width: 32px; height: 32px; line-height: 32px;
-              background: #fff; color: #202124; text-align: center; text-decoration: none;
-              font: bold 20px/32px system-ui, sans-serif; border-bottom: 1px solid #ccc;
-            }
-            .leaflet-bar a:first-child { border-radius: 3px 3px 0 0; }
-            .leaflet-bar a:last-child { border-bottom: 0; border-radius: 0 0 3px 3px; }
-            .leaflet-bar a.leaflet-disabled { color: #aaa; background: #f4f4f4; }
-            .leaflet-control-attribution {
-              margin: 0; padding: 2px 6px; background: rgba(255,255,255,.86);
-              color: #333; font: 11px/1.4 system-ui, sans-serif;
-            }
-            .leaflet-control-attribution a { color: #3559c7; }
-            .leaflet-marker-icon, .leaflet-marker-shadow { display: block; }
-            .quiet-pin { background: transparent; border: 0; }
-            .quiet-pin-dot {
-              display: block; width: 28px; height: 28px; margin: 1px 0 0 2px;
-              border: 4px solid #fff; border-radius: 50% 50% 50% 0;
-              background: #3559c7; box-shadow: 0 2px 7px rgba(0,0,0,.45);
-              transform: rotate(-45deg);
-            }
-            #map-status {
-              position: absolute; z-index: 1200; left: 50%; top: 16px;
-              transform: translateX(-50%); max-width: 80%; padding: 8px 12px;
-              border-radius: 20px; background: rgba(32,33,36,.88); color: #fff;
-              font: 13px/1.3 system-ui, sans-serif; text-align: center;
-              pointer-events: none;
-            }
-          </style>
-        </head>
-        <body>
-          <div id="map"></div>
-          <div id="map-status">Loading map…</div>
-          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-                  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-          <script>
-            const status = document.getElementById('map-status');
-            if (typeof L === 'undefined') {
-              status.textContent = 'Map library could not load. Check your internet connection.';
-            } else {
-              const initialLat = $initialLatitude;
-              const initialLng = $initialLongitude;
-              let radiusMeters = ${radiusMeters.toDouble()};
-              const map = L.map('map', { zoomControl: true });
-              const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors'
-              });
-              tiles.on('load', function() { status.style.display = 'none'; });
-              tiles.on('tileerror', function() {
-                status.textContent = 'Map tiles could not load. Check your internet connection.';
-              });
-              tiles.addTo(map);
-              let marker = null;
-              let circle = null;
-              const pinIcon = L.divIcon({
-                className: 'quiet-pin',
-                html: '<span class="quiet-pin-dot"></span>',
-                iconSize: [34, 44],
-                iconAnchor: [17, 42]
-              });
-
-              function notifyAndroid(latlng) {
-                if (window.QuietClasses) {
-                  window.QuietClasses.onLocationSelected(latlng.lat, latlng.lng);
-                }
-              }
-
-              function placePin(latlng, notify) {
-                if (!marker) {
-                  marker = L.marker(latlng, { draggable: true, icon: pinIcon }).addTo(map);
-                  marker.on('drag', function(event) {
-                    const point = event.target.getLatLng();
-                    circle.setLatLng(point);
-                    notifyAndroid(point);
-                  });
-                } else {
-                  marker.setLatLng(latlng);
-                }
-                if (!circle) {
-                  circle = L.circle(latlng, {
-                    radius: radiusMeters,
-                    color: '#3559c7',
-                    weight: 2,
-                    fillColor: '#3559c7',
-                    fillOpacity: 0.2
-                  }).addTo(map);
-                } else {
-                  circle.setLatLng(latlng).setRadius(radiusMeters);
-                }
-                if (notify) notifyAndroid(latlng);
-              }
-
-              window.setRadiusMeters = function(value) {
-                radiusMeters = value;
-                if (circle) circle.setRadius(value);
-              };
-
-              map.on('click', function(event) { placePin(event.latlng, true); });
-              if (initialLat !== null && initialLng !== null) {
-                const point = L.latLng(initialLat, initialLng);
-                placePin(point, false);
-                map.fitBounds(circle.getBounds(), { padding: [36, 36], maxZoom: 18 });
-              } else {
-                map.setView([37.2284, -80.4234], 15);
-              }
-              setTimeout(function() { map.invalidateSize(); }, 100);
-            }
-          </script>
-        </body>
-        </html>
-    """.trimIndent()
 }
 
 @Composable

@@ -32,6 +32,10 @@ internal fun CustomDndSettingsEditor(
     value: CustomDndSettings,
     onValueChange: (CustomDndSettings) -> Unit,
 ) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
     Text(
         "Custom DND settings",
         style = MaterialTheme.typography.titleMedium,
@@ -139,6 +143,7 @@ internal fun CustomDndSettingsEditor(
             checked = value.showFullScreenIntents,
             onCheckedChange = { onValueChange(value.copy(showFullScreenIntents = it)) },
         )
+    }
     }
 }
 
