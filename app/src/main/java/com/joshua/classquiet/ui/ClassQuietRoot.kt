@@ -801,7 +801,7 @@ private fun ScheduleEditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                DayOfWeek.values().forEach { day ->
+                DayOfWeek.entries.forEach { day ->
                     FilterChip(
                         selected = day.value in selectedDays,
                         onClick = {

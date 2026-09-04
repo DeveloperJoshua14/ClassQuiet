@@ -85,7 +85,7 @@ internal fun WeekCalendarScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(DayOfWeek.values().toList(), key = { it.value }) { day ->
+            items(DayOfWeek.entries, key = { it.value }) { day ->
                 WeekDayCard(
                     day = day,
                     schedules = schedules

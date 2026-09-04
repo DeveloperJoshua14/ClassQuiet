@@ -98,8 +98,12 @@ internal fun ScheduleEditorScreenV2(
     var selectedDays: List<Int> by rememberSaveable(key) {
         mutableStateOf(existing?.days?.map { it.value } ?: listOf(1, 3, 5))
     }
-    var startMinutes by rememberSaveable(key) { mutableStateOf(existing?.startMinutes ?: 9 * 60) }
-    var endMinutes by rememberSaveable(key) { mutableStateOf(existing?.endMinutes ?: 10 * 60) }
+    var startMinutes by rememberSaveable(key) {
+        mutableStateOf(existing?.startMinutes ?: (9 * 60))
+    }
+    var endMinutes by rememberSaveable(key) {
+        mutableStateOf(existing?.endMinutes ?: (10 * 60))
+    }
     var extendPastEnd by rememberSaveable(key) {
         mutableStateOf(existing?.extendPastEnd ?: false)
     }
@@ -199,7 +203,7 @@ internal fun ScheduleEditorScreenV2(
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                DayOfWeek.values().forEach { day ->
+                DayOfWeek.entries.forEach { day ->
                     FilterChip(
                         selected = day.value in selectedDays,
                         onClick = {
@@ -438,7 +442,6 @@ private fun LocationEditorScreen(
     var showMap by rememberSaveable(key) { mutableStateOf(false) }
     var locating by remember(key) { mutableStateOf(false) }
     var validationAttempted by rememberSaveable(key) { mutableStateOf(false) }
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val latitude = latitudeText.toDoubleOrNull()
     val longitude = longitudeText.toDoubleOrNull()
@@ -675,11 +678,11 @@ private fun MapPickerDialog(
 ) {
     var selectedLatitude by rememberSaveable { mutableStateOf(initialLatitude) }
     var selectedLongitude by rememberSaveable { mutableStateOf(initialLongitude) }
-    var mapViewReference by remember { mutableStateOf<OsmMapView?>(null) }
+    val mapViewReference = remember { mutableStateOf<OsmMapView?>(null) }
 
     DisposableEffect(Unit) {
         onDispose {
-            mapViewReference?.release()
+            mapViewReference.value?.release()
         }
     }
 
@@ -711,18 +714,18 @@ private fun MapPickerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    factory = { context ->
+                    factory = { context: android.content.Context ->
                         OsmMapView(context).apply {
-                            mapViewReference = this
+                            mapViewReference.value = this
                             setInitialLocation(initialLatitude, initialLongitude)
                             setRadiusMeters(radiusMeters)
-                            onLocationSelected = { latitude, longitude ->
+                            onLocationSelected = { latitude: Double, longitude: Double ->
                                 selectedLatitude = latitude
                                 selectedLongitude = longitude
                             }
                         }
                     },
-                    update = { mapView ->
+                    update = { mapView: OsmMapView ->
                         mapView.setRadiusMeters(radiusMeters)
                     },
                 )

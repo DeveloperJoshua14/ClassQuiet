@@ -48,7 +48,11 @@ class ActiveModeNotifier(context: Context) {
             .setOngoing(true)
             .setShowWhen(false)
             .build()
-        NotificationManagerCompat.from(appContext).notify(NOTIFICATION_ID, notification)
+        try {
+            NotificationManagerCompat.from(appContext).notify(NOTIFICATION_ID, notification)
+        } catch (_: SecurityException) {
+            // Permission may be revoked between the check above and this system call.
+        }
     }
 
     fun cancel() {

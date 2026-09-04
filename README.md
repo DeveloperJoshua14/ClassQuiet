@@ -5,13 +5,13 @@ Quiet Classes is a native Android app that activates Do Not Disturb only when bo
 1. A saved class is currently in session.
 2. The phone is physically inside that class's saved location radius.
 
-This is version 1.2.2. It is designed for a Pixel running Android 17. The app compiles against stable API 36 and targets API 36, which remains forward-compatible with Android 17. Its unchanged package name is `com.joshua.classquiet`, so this release can update earlier ClassQuiet and Quiet Classes builds while preserving their stored classes.
+This is version 1.2.3. It is designed for a Pixel running Android 17. The app compiles against stable API 36 and targets API 36, which remains forward-compatible with Android 17. Its unchanged package name is `com.joshua.classquiet`, so this release can update earlier ClassQuiet and Quiet Classes builds while preserving their stored classes.
 
 ## Download and install
 
 Download the newest signed APK from the [GitHub Releases page](https://github.com/DeveloperJoshua14/ClassQuiet/releases/latest).
 
-1. Under **Assets**, download the file ending in `.apk` (for example, `Quiet-Classes-v1.2.2.apk`). Do not download GitHub's automatically generated **Source code** ZIP files unless you intend to build the app yourself.
+1. Under **Assets**, download the file ending in `.apk` (for example, `Quiet-Classes-v1.2.3.apk`). Do not download GitHub's automatically generated **Source code** ZIP files unless you intend to build the app yourself.
 2. Open the APK on the Android phone.
 3. If Android asks, allow **Install unknown apps** for the browser, Files app, or other app used to open the APK.
 4. Complete the six setup requirements shown inside Quiet Classes.
@@ -72,9 +72,11 @@ The debug APK is produced at `app\build\outputs\apk\debug\app-debug.apk`.
 
 ## Updating from an earlier build
 
-Install version 1.2.2 on the same Pixel. Because the application ID is unchanged and the version code is higher, Android accepts it as an update and retains the existing class list when both APKs were signed with the same key.
+Install version 1.2.3 on the same Pixel. Because the application ID is unchanged and the version code is higher, Android accepts it as an update and retains the existing class list when both APKs were signed with the same key.
 
 Do not uninstall the earlier app first unless Android reports a signing conflict; uninstalling removes its local data. Export a backup before replacing or uninstalling any existing installation.
+
+When copying an update over an existing Git checkout, make sure newly added files are copied as well as changed files. For version 1.2.3, Android Studio should show both `ui/OsmMapView.kt` and `res/drawable/ic_school_mode.xml`. Then run **File → Sync Project with Gradle Files**. If Gradle builds successfully but Code Analysis still marks those names unresolved, use **File → Invalidate Caches → Invalidate and Restart** to rebuild Android Studio's index.
 
 ## First-run setup on the Pixel
 
@@ -143,8 +145,8 @@ Release builds must be signed. In Android Studio:
 4. Choose **APK**, select the `app` module, and choose the `release` build variant.
 5. Select the existing Quiet Classes `.jks` keystore and key alias. Always use the same release key so Android can install the APK as an update.
 6. Create the APK. Android Studio normally writes it to `app/build/outputs/apk/release/app-release.apk`.
-7. Rename the file to include the version, such as `Quiet-Classes-v1.2.2.apk`.
-8. On GitHub, open **Releases → Draft a new release**, create a matching tag such as `v1.2.2`, attach the renamed APK under **Assets**, add release notes, and publish it.
+7. Rename the file to include the version, such as `Quiet-Classes-v1.2.3.apk`.
+8. On GitHub, open **Releases → Draft a new release**, create a matching tag such as `v1.2.3`, attach the renamed APK under **Assets**, add release notes, and publish it.
 
 Keep the signing keystore and its passwords private, backed up, and outside the repository. Anyone with the key can publish an update that Android trusts as this app, while losing the key prevents future APKs from updating existing installations.
 

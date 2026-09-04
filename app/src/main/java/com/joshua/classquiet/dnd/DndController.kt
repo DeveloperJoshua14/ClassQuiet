@@ -8,6 +8,8 @@ import android.net.Uri
 import android.os.Build
 import android.service.notification.Condition
 import android.service.notification.ZenPolicy
+import androidx.annotation.RequiresApi
+import androidx.core.content.edit
 import com.joshua.classquiet.MainActivity
 import com.joshua.classquiet.R
 import com.joshua.classquiet.model.ClassSchedule
@@ -55,15 +57,15 @@ class DndController(context: Context) {
             }
             val replacementId = notificationManager.addAutomaticZenRule(replacement)
             if (replacementId == null) {
-                preferences.edit()
-                    .remove(KEY_RULE_ID)
-                    .remove(KEY_RULE_SCHEMA_VERSION)
-                    .commit()
+                preferences.edit(commit = true) {
+                    remove(KEY_RULE_ID)
+                    remove(KEY_RULE_SCHEMA_VERSION)
+                }
             } else {
-                preferences.edit()
-                    .putString(KEY_RULE_ID, replacementId)
-                    .putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
-                    .commit()
+                preferences.edit(commit = true) {
+                    putString(KEY_RULE_ID, replacementId)
+                    putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
+                }
             }
         }
     }
@@ -84,10 +86,10 @@ class DndController(context: Context) {
                     Condition.STATE_TRUE,
                 ),
             )
-            preferences.edit()
-                .putBoolean(KEY_APP_ACTIVE, true)
-                .remove(KEY_PREVIOUS_FILTER)
-                .apply()
+            preferences.edit {
+                putBoolean(KEY_APP_ACTIVE, true)
+                remove(KEY_PREVIOUS_FILTER)
+            }
             DndResult(true, "${schedule.dndMode.displayName} is active.")
         }.getOrElse { error ->
             DndResult(false, error.message ?: "Android rejected the Do Not Disturb change.")
@@ -128,7 +130,7 @@ class DndController(context: Context) {
             return DndResult(true, "Quiet Classes is not controlling Do Not Disturb.")
         }
         if (!hasPolicyAccess()) {
-            preferences.edit().putBoolean(KEY_APP_ACTIVE, false).apply()
+            preferences.edit { putBoolean(KEY_APP_ACTIVE, false) }
             return DndResult(false, "Do Not Disturb access was removed while class mode was active.")
         }
 
@@ -142,12 +144,12 @@ class DndController(context: Context) {
                 )
             } else {
                 restoreLegacyInterruptionFilter()
-                preferences.edit().remove(KEY_RULE_ID).apply()
+                preferences.edit { remove(KEY_RULE_ID) }
             }
-            preferences.edit()
-                .putBoolean(KEY_APP_ACTIVE, false)
-                .remove(KEY_PREVIOUS_FILTER)
-                .apply()
+            preferences.edit {
+                putBoolean(KEY_APP_ACTIVE, false)
+                remove(KEY_PREVIOUS_FILTER)
+            }
             DndResult(true, "Class mode is off.")
         }.getOrElse { error ->
             DndResult(false, error.message ?: "Android rejected the Do Not Disturb change.")
@@ -163,15 +165,15 @@ class DndController(context: Context) {
             val needsIconMigration = preferences.getInt(KEY_RULE_SCHEMA_VERSION, 0) <
                 CURRENT_RULE_SCHEMA_VERSION
             if (needsIconMigration && notificationManager.removeAutomaticZenRule(storedId)) {
-                preferences.edit().remove(KEY_RULE_ID).commit()
+                preferences.edit(commit = true) { remove(KEY_RULE_ID) }
             } else {
                 check(notificationManager.updateAutomaticZenRule(storedId, desired)) {
                     "Android did not allow Quiet Classes to update its Mode. " +
                         "Open Android Modes settings and make sure the Mode is enabled."
                 }
-                preferences.edit()
-                    .putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
-                    .apply()
+                preferences.edit {
+                    putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
+                }
                 return storedId
             }
         }
@@ -184,12 +186,10 @@ class DndController(context: Context) {
         val createdId = checkNotNull(notificationManager.addAutomaticZenRule(desired)) {
             "Android could not create the Quiet Classes Mode."
         }
-        check(
-            preferences.edit()
-                .putString(KEY_RULE_ID, createdId)
-                .putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
-                .commit(),
-        ) { "Could not remember the Android Mode identifier." }
+        preferences.edit(commit = true) {
+            putString(KEY_RULE_ID, createdId)
+            putInt(KEY_RULE_SCHEMA_VERSION, CURRENT_RULE_SCHEMA_VERSION)
+        }
         return createdId
     }
 
@@ -281,6 +281,7 @@ class DndController(context: Context) {
         PeopleAudience.ANYONE -> ZenPolicy.PEOPLE_TYPE_ANYONE
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun ConversationAudience.asZenConversationType(): Int = when (this) {
         ConversationAudience.NONE -> ZenPolicy.CONVERSATION_SENDERS_NONE
         ConversationAudience.IMPORTANT -> ZenPolicy.CONVERSATION_SENDERS_IMPORTANT

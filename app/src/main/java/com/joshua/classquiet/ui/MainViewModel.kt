@@ -33,8 +33,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val mutableMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = mutableMessages.asSharedFlow()
 
-    fun findSchedule(id: String?): ClassSchedule? = id?.let(app.scheduleRepository::get)
-
     fun refreshAfterResume() {
         mutablePermissions.value = app.permissionMonitor.snapshot()
         app.dndController.migrateRuleIconIfNeeded()

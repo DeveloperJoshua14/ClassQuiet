@@ -288,7 +288,7 @@ fun Int.formatAsTime(): String = asTime().format(
 
 fun Set<DayOfWeek>.formatDays(): String {
     if (size == 7) return "Every day"
-    if (this == DayOfWeek.values().take(5).toSet()) return "Weekdays"
+    if (this == DayOfWeek.entries.take(5).toSet()) return "Weekdays"
     if (this == setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)) return "Weekends"
     return sortedBy { it.value }.joinToString(" · ") {
         it.name.lowercase().replaceFirstChar { character -> character.uppercase() }.take(3)
