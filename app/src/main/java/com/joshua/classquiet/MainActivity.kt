@@ -17,6 +17,7 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import com.joshua.classquiet.ui.ClassQuietRoot
 import com.joshua.classquiet.ui.MainViewModel
+import com.joshua.classquiet.ui.WithLocationPermissionDisclosure
 import com.joshua.classquiet.ui.theme.ClassQuietTheme
 
 class MainActivity : ComponentActivity() {
@@ -27,7 +28,16 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         viewModel.refreshPermissionsOnly()
         if (result[Manifest.permission.ACCESS_FINE_LOCATION] != true) {
-            viewModel.showMessage("Precise location is required to recognize individual class buildings.")
+            viewModel.showMessage(getString(R.string.location_disclosure_precise_needed))
+        }
+    }
+
+    private val backgroundLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        viewModel.refreshPermissionsOnly()
+        if (!granted) {
+            viewModel.showMessage(getString(R.string.location_disclosure_background_needed))
         }
     }
 
@@ -57,18 +67,24 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ClassQuietTheme {
-                ClassQuietRoot(
-                    viewModel = viewModel,
+                WithLocationPermissionDisclosure(
                     requestForegroundLocation = ::requestForegroundLocation,
-                    openBackgroundLocationSettings = ::openAppSettings,
-                    openDndSettings = ::openDndSettings,
-                    openExactAlarmSettings = ::openExactAlarmSettings,
-                    openLocationServices = ::openLocationServices,
-                    requestNotificationPermission = ::requestNotificationPermission,
-                    exportConfiguration = ::exportConfiguration,
-                    importConfiguration = ::importConfiguration,
-                    startOnSettings = intent?.action == NotificationManager.ACTION_AUTOMATIC_ZEN_RULE,
-                )
+                    requestBackgroundLocation = ::requestBackgroundLocation,
+                    openPrivacyPolicy = ::openPrivacyPolicy,
+                ) { disclosedForegroundRequest, disclosedBackgroundRequest ->
+                    ClassQuietRoot(
+                        viewModel = viewModel,
+                        requestForegroundLocation = disclosedForegroundRequest,
+                        openBackgroundLocationSettings = disclosedBackgroundRequest,
+                        openDndSettings = ::openDndSettings,
+                        openExactAlarmSettings = ::openExactAlarmSettings,
+                        openLocationServices = ::openLocationServices,
+                        requestNotificationPermission = ::requestNotificationPermission,
+                        exportConfiguration = ::exportConfiguration,
+                        importConfiguration = ::importConfiguration,
+                        startOnSettings = intent?.action == NotificationManager.ACTION_AUTOMATIC_ZEN_RULE,
+                    )
+                }
             }
         }
     }
@@ -85,6 +101,32 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.ACCESS_FINE_LOCATION,
             ),
         )
+    }
+
+    private fun requestBackgroundLocation() {
+        if (
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            // The setup button is disabled until precise access exists, but it can be revoked
+            // while the disclosure is visible. Request the foreground permission first.
+            requestForegroundLocation()
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            openAppSettings()
+        } else {
+            // Android 10 offers "Allow all the time" in its runtime dialog.
+            backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+    }
+
+    private fun openPrivacyPolicy() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://classquiet.nafzigers.us/privacy")))
+        } catch (_: ActivityNotFoundException) {
+            viewModel.showMessage(getString(R.string.location_disclosure_browser_unavailable))
+        }
     }
 
     private fun openAppSettings() {

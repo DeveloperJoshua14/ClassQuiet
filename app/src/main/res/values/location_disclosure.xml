@@ -1,0 +1,16 @@
+<resources>
+    <string name="location_disclosure_title">Location for class-based quiet</string>
+    <string name="location_disclosure_body">Quiet Classes collects location data to automatically activate Do Not Disturb at your saved class locations during scheduled class times, and deactivate it when you leave, even when the app is closed or not in use.</string>
+    <string name="location_disclosure_processing">Class-location checks are processed on your device. Quiet Classes does not use your location for advertising.</string>
+    <string name="location_disclosure_foreground_step">First, allow location while using the app and choose Precise if offered. Background location is a separate setup step.</string>
+    <string name="location_disclosure_background_settings_step">Next, open Permissions → Location and choose %1$s. This lets class arrival and departure checks work with your screen off.</string>
+    <string name="location_disclosure_background_dialog_step">Next, choose %1$s in the Android permission prompt. This lets class arrival and departure checks work with your screen off.</string>
+    <string name="location_disclosure_optional">You can choose Not now and use classes with their location requirement turned off.</string>
+    <string name="location_disclosure_continue">Continue</string>
+    <string name="location_disclosure_not_now">Not now</string>
+    <string name="location_disclosure_privacy_policy">Privacy policy</string>
+    <string name="location_disclosure_allow_all_the_time">Allow all the time</string>
+    <string name="location_disclosure_precise_needed">Location-based classes need precise location. You can allow it later or turn off the location requirement for a class.</string>
+    <string name="location_disclosure_background_needed">Background location was not granted. Location-based classes need it to detect arrivals and departures while the app is not in use.</string>
+    <string name="location_disclosure_browser_unavailable">No browser is available to open the privacy policy.</string>
+</resources>
