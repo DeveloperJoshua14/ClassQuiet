@@ -9,6 +9,8 @@ This is version 1.2.3. It is designed for a Pixel running Android 17. The app co
 
 ## Download and install
 
+Download directly from the [Official Google Play Store Release](https://play.google.com/store/apps/details?id=com.joshua.classquiet&pcampaignid=web_share) or you can: 
+
 Download the newest signed APK from the [GitHub Releases page](https://github.com/DeveloperJoshua14/ClassQuiet/releases/latest).
 
 1. Under **Assets**, download the file ending in `.apk` (for example, `Quiet-Classes-v1.2.3.apk`). Do not download GitHub's automatically generated **Source code** ZIP files unless you intend to build the app yourself.
